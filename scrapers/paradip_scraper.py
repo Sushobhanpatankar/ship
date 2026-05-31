@@ -1,6 +1,9 @@
 """
-Paradip Port — vessel line-up scraper.
-Paradip is primarily a crude oil port (handles ~60MT crude/year).
+Paradip Port Authority — vessel berth allotment scraper.
+Source: PPT_VIEW public dashboard (https://www.paradipport.gov.in/ppt_berth/PPT_VIEW/Dashboard_public.aspx)
+
+Paradip is India's largest crude oil port (~60 MT/year).
+SPM (Single Point Mooring) berth = crude tanker (VLCC/Suezmax).
 """
 import logging
 
@@ -10,10 +13,17 @@ from scrapers.base_scraper import BaseScraper
 
 log = logging.getLogger(__name__)
 
+# Berth → cargo hints
+BERTH_CARGO_HINTS = {
+    "SPM": "CRUDE",   # Single Point Mooring — crude VLCCs
+    "EQ":  "CRUDE",   # Equip quay
+    "OQ":  "CRUDE",   # Oil quay
+}
+
 
 class ParadipScraper(BaseScraper):
     name = "Paradip"
-    url = "https://www.paradipport.gov.in/vessel-schedule.aspx"
+    url = "https://www.paradipport.gov.in/ppt_berth/PPT_VIEW/Dashboard_public.aspx"
     port_name = "Paradip"
 
     async def parse(self, html: str) -> list[dict]:
@@ -25,40 +35,46 @@ class ParadipScraper(BaseScraper):
             if len(rows) < 2:
                 continue
 
-            header_row = rows[0]
             headers = [th.get_text(strip=True).lower()
-                       for th in header_row.find_all(["th", "td"])]
+                       for th in rows[0].find_all(["th", "td"])]
 
-            col_ship    = _find_col(headers, ["vessel", "ship", "name"])
-            col_berth   = _find_col(headers, ["berth", "jetty", "terminal", "wharf"])
-            col_cargo   = _find_col(headers, ["cargo", "commodity", "type", "nature"])
-            col_arrival = _find_col(headers, ["arrival", "arrived", "eta", "date"])
-            col_etd     = _find_col(headers, ["departure", "etd"])
+            col_ship    = _find_col(headers, ["vessel", "ship", "name of"])
+            col_berth   = _find_col(headers, ["berth allotted", "berth", "jetty"])
+            col_cargo   = _find_col(headers, ["cargo", "commodity", "nature", "remarks"])
+            col_arrival = _find_col(headers, ["arrival", "arrived", "readiness"])
+            col_etd     = _find_col(headers, ["sailing", "departure", "exp."])
 
             if col_ship is None:
                 continue
 
             for row in rows[1:]:
                 cells = [td.get_text(strip=True) for td in row.find_all(["td", "th"])]
-                if len(cells) < 2:
+                if len(cells) < 3:
                     continue
 
                 ship_name = _safe_get(cells, col_ship)
-                if not ship_name or len(ship_name) < 3:
+                if not ship_name or len(ship_name) < 3 or ship_name.isdigit():
                     continue
 
-                berth      = _safe_get(cells, col_berth)   or ""
-                cargo_text = _safe_get(cells, col_cargo)   or ""
+                berth      = _safe_get(cells, col_berth) or ""
+                cargo_text = _safe_get(cells, col_cargo) or ""
                 arrival    = _safe_get(cells, col_arrival) or ""
-                etd        = _safe_get(cells, col_etd)     or ""
+                etd        = _safe_get(cells, col_etd) or ""
 
-                # Default Paradip cargo to CRUDE unless specified otherwise
-                cargo_cat = self.detect_cargo(cargo_text + " " + ship_name)
+                # Determine cargo: berth name hints > text detection > default (CRUDE)
+                berth_upper = berth.upper().strip()
+                cargo_cat = None
+                for hint_berth, hint_cargo in BERTH_CARGO_HINTS.items():
+                    if berth_upper.startswith(hint_berth):
+                        cargo_cat = hint_cargo
+                        break
+                if cargo_cat is None:
+                    cargo_cat = self.detect_cargo(cargo_text + " " + ship_name)
                 if cargo_cat == "OTHER":
                     cargo_cat = "CRUDE"  # Paradip default
 
                 records.append({
-                    "ship_name": ship_name,
+                    "ship_name": ship_name.lstrip("0123456789. "),
                     "berth": berth,
                     "cargo_category": cargo_cat,
                     "activity": "BERTHED" if berth else "ANCHORED",
@@ -68,36 +84,7 @@ class ParadipScraper(BaseScraper):
                     "source": self.name,
                 })
 
-        # Fallback: try unordered list or div-based layouts
-        if not records:
-            records = self._parse_fallback(soup)
-
-        log.debug("[Paradip] parsed %d energy vessel records", len(records))
-        return records
-
-    def _parse_fallback(self, soup: BeautifulSoup) -> list[dict]:
-        records = []
-        # Look for any text blocks containing vessel names
-        for tag in soup.find_all(["p", "li", "div"]):
-            text = tag.get_text(strip=True)
-            if len(text) < 5 or len(text) > 200:
-                continue
-            # Very basic: if line contains a known pattern like "MV " or "MT "
-            if any(text.upper().startswith(prefix) for prefix in
-                   ["MV ", "MT ", "M.T ", "M.V ", "SS ", "FSO ", "VLCC "]):
-                cargo_cat = self.detect_cargo(text)
-                if cargo_cat == "OTHER":
-                    cargo_cat = "CRUDE"
-                records.append({
-                    "ship_name": text[:50],
-                    "berth": "",
-                    "cargo_category": cargo_cat,
-                    "activity": "ANCHORED",
-                    "arrival_time": "",
-                    "expected_departure": "",
-                    "port_name": self.port_name,
-                    "source": self.name,
-                })
+        log.debug("[Paradip] parsed %d vessel records", len(records))
         return records
 
 

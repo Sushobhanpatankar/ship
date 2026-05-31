@@ -1,0 +1,24 @@
+{
+  "history": [
+    {
+      "ts_utc": "2026-05-31T11:49:16Z",
+      "ts_ist": "31 May, 05:19 PM",
+      "total_in_port": 5,
+      "crude": 2,
+      "lng": 1,
+      "cng": 0,
+      "petroleum": 2,
+      "busiest_port": "Mundra"
+    },
+    {
+      "ts_utc": "2026-05-31T11:58:30Z",
+      "ts_ist": "31 May, 05:28 PM",
+      "total_in_port": 10,
+      "crude": 6,
+      "lng": 1,
+      "cng": 0,
+      "petroleum": 3,
+      "busiest_port": "Mundra"
+    }
+  ]
+}

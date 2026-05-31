@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>India Energy Vessel Pipeline</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
+      --border:#2e3352;--accent:#f59e0b;--accent2:#3b82f6;
+      --accent3:#10b981;--text:#e2e8f0;--muted:#8892a4;
+      --red:#ef4444;--radius:14px;--shadow:0 4px 24px rgba(0,0,0,.45);
+    }
+    body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    a{color:var(--accent2);text-decoration:none}
+    header{background:var(--surface);border-bottom:1px solid var(--border);padding:18px 32px}
+    .hdr{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .hdr-left{display:flex;align-items:center;gap:14px}
+    .hdr-icon{font-size:2.2rem}
+    h1{font-size:1.35rem;font-weight:700}
+    .subtitle{font-size:.82rem;color:var(--muted);margin-top:2px}
+    .badge{font-size:.78rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px}
+    .hdr-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    main{max-width:1200px;margin:36px auto;padding:0 24px 56px}
+
+    /* Stats strip */
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:32px}
+    .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 18px;box-shadow:var(--shadow);text-align:center}
+    .stat-num{font-size:2.2rem;font-weight:800;letter-spacing:-.5px;line-height:1}
+    .stat-label{font-size:.74rem;color:var(--muted);margin-top:6px}
+    .stat-crude   {border-color:#f59e0b44} .stat-crude   .stat-num{color:#fbbf24}
+    .stat-lng     {border-color:#3b82f644} .stat-lng     .stat-num{color:#60a5fa}
+    .stat-cng     {border-color:#10b98144} .stat-cng     .stat-num{color:#34d399}
+    .stat-petro   {border-color:#f9731644} .stat-petro   .stat-num{color:#fb923c}
+    .stat-total   {border-color:#e2e8f033} .stat-total   .stat-num{color:#e2e8f0}
+    .stat-busiest {grid-column:span 2}     .stat-busiest .stat-num{font-size:1.3rem;color:var(--accent)}
+
+    /* Sections */
+    .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 24px 20px;box-shadow:var(--shadow);margin-bottom:28px}
+    .section-header{margin-bottom:18px}
+    .section-title{font-size:1rem;font-weight:700}
+    .section-sub{font-size:.78rem;font-weight:400;color:var(--muted);margin-left:6px}
+
+    /* Tables */
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th{text-align:left;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border)}
+    td{padding:8px 10px;border-bottom:1px solid #2e335233;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#ffffff05}
+
+    /* Footer */
+    .footer{font-size:.74rem;color:var(--muted);text-align:center;padding:16px 0;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px}
+    .sep{opacity:.4}
+
+    @media(max-width:640px){
+      header{padding:14px 16px} main{padding:0 14px 40px;margin-top:24px}
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .stat-busiest{grid-column:span 2}
+      h1{font-size:1.1rem}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-icon">&#128674;</span>
+      <div>
+        <h1>India Energy Vessel Pipeline</h1>
+        <p class="subtitle">Live tracking — Crude, LNG, CNG &amp; Petroleum tankers at Indian ports</p>
+      </div>
+    </div>
+    <div class="hdr-links">
+      <a class="badge" href="https://sushobhanpatankar.github.io/Ind_crude_oil/">&#128202; Crude Oil Prices</a>
+      <span class="badge">Updated: 31 May 2026, 05:28 PM IST</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Stats strip -->
+  <div class="stats">
+    <div class="stat stat-total">
+      <div class="stat-num">10</div>
+      <div class="stat-label">Total At Port</div>
+    </div>
+    <div class="stat stat-crude">
+      <div class="stat-num">6</div>
+      <div class="stat-label">Crude Tankers</div>
+    </div>
+    <div class="stat stat-lng">
+      <div class="stat-num">1</div>
+      <div class="stat-label">LNG Carriers</div>
+    </div>
+    <div class="stat stat-cng">
+      <div class="stat-num">0</div>
+      <div class="stat-label">CNG Carriers</div>
+    </div>
+    <div class="stat stat-petro">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Petroleum</div>
+    </div>
+    <div class="stat stat-busiest">
+      <div class="stat-num">Mundra</div>
+      <div class="stat-label">Busiest Port</div>
+    </div>
+  </div>
+
+  <!-- History chart -->
+  
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Vessels At Port <span class="section-sub">(30-min snapshots)</span></h2>
+    </div>
+    <div style="position:relative;height:260px"><canvas id="histChart"></canvas></div>
+  </section>
+
+  <!-- Port summary table -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Port Summary</h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Port</th>
+          <th style="text-align:right;color:#fbbf24">Crude</th>
+          <th style="text-align:right;color:#60a5fa">LNG</th>
+          <th style="text-align:right;color:#34d399">CNG</th>
+          <th style="text-align:right;color:#fb923c">Petroleum</th>
+          <th style="text-align:right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style='font-weight:600'>Mundra</td><td style='text-align:right;color:#fbbf24'>2</td><td style='text-align:right;color:#60a5fa'>1</td><td style='text-align:right;color:#34d399'>0</td><td style='text-align:right;color:#fb923c'>2</td><td style='text-align:right;font-weight:700'>5</td></tr>
+<tr><td style='font-weight:600'>Paradip</td><td style='text-align:right;color:#fbbf24'>4</td><td style='text-align:right;color:#60a5fa'>0</td><td style='text-align:right;color:#34d399'>0</td><td style='text-align:right;color:#fb923c'>0</td><td style='text-align:right;font-weight:700'>4</td></tr>
+<tr><td style='font-weight:600'>JNPT</td><td style='text-align:right;color:#fbbf24'>0</td><td style='text-align:right;color:#60a5fa'>0</td><td style='text-align:right;color:#34d399'>0</td><td style='text-align:right;color:#fb923c'>1</td><td style='text-align:right;font-weight:700'>1</td></tr>
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Vessel list -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Vessels Currently At Port <span class="section-sub">(10 vessels · scraped from port authority websites)</span></h2>
+    </div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Vessel</th>
+          <th>Port</th>
+          <th>Berth</th>
+          <th>Cargo</th>
+          <th>Status</th>
+          <th>Arrival</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style='font-weight:500'>BABYLON</td><td>JNPT</td><td style='font-size:.78rem;color:#8892a4'>BPCL</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f9731622;color:#fb923c;border:1px solid #f9731644">PETROLEUM</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>30-05-2026 03:54:00</td></tr>
+<tr><td style='font-weight:500'>MT SANMAR SRUTHI</td><td>Mundra</td><td style='font-size:.78rem;color:#8892a4'>B03</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f9731622;color:#fb923c;border:1px solid #f9731644">PETROLEUM</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>—</td></tr>
+<tr><td style='font-weight:500'>MT NAVE SEXTANS</td><td>Mundra</td><td style='font-size:.78rem;color:#8892a4'>B01</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>—</td></tr>
+<tr><td style='font-weight:500'>MT CSSC LIAO NING</td><td>Mundra</td><td style='font-size:.78rem;color:#8892a4'>MCOT</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>—</td></tr>
+<tr><td style='font-weight:500'>FOR LIQUEFIED PETROLEUM GAS</td><td>Mundra</td><td style='font-size:.78rem;color:#8892a4'>30.05.2026 23:06</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f9731622;color:#fb923c;border:1px solid #f9731644">PETROLEUM</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>—</td></tr>
+<tr><td style='font-weight:500'>FOR  LIQUEFIED NATURAL GAS</td><td>Mundra</td><td style='font-size:.78rem;color:#8892a4'>—</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#60a5fa;border:1px solid #3b82f644">LNG</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#8b5cf622;color:#8b5cf6;border:1px solid #8b5cf644">ANCHORED</span></td><td style='font-size:.78rem;color:#8892a4'>01-06-2026 00:01</td></tr>
+<tr><td style='font-weight:500'>MV. SHELTER ISLAND</td><td>Paradip</td><td style='font-size:.78rem;color:#8892a4'>MPB</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>22/Jan/2025 13:09:36</td></tr>
+<tr><td style='font-weight:500'>MT PLATA NORTH</td><td>Paradip</td><td style='font-size:.78rem;color:#8892a4'>SPM</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>22/Jan/2025 13:08:27</td></tr>
+<tr><td style='font-weight:500'>MV. AQUAGEMINI</td><td>Paradip</td><td style='font-size:.78rem;color:#8892a4'>FB-1</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>21/Jan/2025 13:10:09</td></tr>
+<tr><td style='font-weight:500'>VUKOVAR</td><td>Paradip</td><td style='font-size:.78rem;color:#8892a4'>SOJ</td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#f59e0b22;color:#fbbf24;border:1px solid #f59e0b44">CRUDE</span></td><td><span style="font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644">BERTHED</span></td><td style='font-size:.78rem;color:#8892a4'>20/Jan/2025 13:09:00</td></tr>
+
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <div class="footer">
+    <span>Data fetched: 31 May 2026, 05:28 PM IST</span>
+    <span class="sep">·</span>
+    <span>Sources: JNPT · Paradip Port · Adani Mundra · Vizag Port</span>
+    <span class="sep">·</span>
+    <span>Auto-updates every 30 minutes via GitHub Actions</span>
+    <span class="sep">·</span>
+    <span>AIS layer active when ship tracker server is running</span>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+  const H = [{"ts_utc": "2026-05-31T11:49:16Z", "ts_ist": "31 May, 05:19 PM", "total_in_port": 5, "crude": 2, "lng": 1, "cng": 0, "petroleum": 2, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T11:58:30Z", "ts_ist": "31 May, 05:28 PM", "total_in_port": 10, "crude": 6, "lng": 1, "cng": 0, "petroleum": 3, "busiest_port": "Mundra"}];
+  const labels  = H.map(d => d.ts_ist);
+  const inPort  = H.map(d => d.total_in_port);
+  const crude   = H.map(d => d.crude);
+  const lng     = H.map(d => d.lng);
+  const petro   = H.map(d => d.petroleum);
+  Chart.defaults.color = "#8892a4";
+  Chart.defaults.borderColor = "#2e3352";
+  new Chart(document.getElementById("histChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {label:"Total In-Port",data:inPort,borderColor:"#e2e8f0",backgroundColor:"#e2e8f011",tension:.3,fill:true,pointRadius:H.length>40?1:3},
+        {label:"Crude",       data:crude,  borderColor:"#fbbf24",backgroundColor:"#fbbf2411",tension:.3,fill:false,pointRadius:0},
+        {label:"LNG",         data:lng,    borderColor:"#60a5fa",backgroundColor:"transparent",tension:.3,fill:false,pointRadius:0},
+        {label:"Petroleum",   data:petro,  borderColor:"#fb923c",backgroundColor:"transparent",tension:.3,fill:false,pointRadius:0},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      scales:{
+        x:{ticks:{maxTicksLimit:8,maxRotation:30},grid:{color:"#2e335244"}},
+        y:{min:0,ticks:{stepSize:1},grid:{color:"#2e335244"},
+           title:{display:true,text:"vessels",font:{size:11}}}
+      },
+      plugins:{
+        legend:{labels:{color:"#e2e8f0",usePointStyle:true,padding:16}},
+        tooltip:{backgroundColor:"#1a1d27",borderColor:"#2e3352",borderWidth:1,
+                  titleColor:"#e2e8f0",bodyColor:"#8892a4",padding:10}
+      }
+    }
+  });
+</script>
+</body>
+</html>
