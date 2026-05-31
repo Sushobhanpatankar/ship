@@ -14,6 +14,8 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import httpx
+
 # ── Patch db.log_scraper_run to a no-op so scrapers run without a real DB ──
 import database.db as _db
 
@@ -29,6 +31,10 @@ from scrapers.vizag_scraper import VizagScraper         # noqa: E402
 
 HISTORY_FILE = "docs/ships_data.json"
 MAX_HISTORY  = 336   # 7 days × 48 half-hours
+
+# Optional: URL of the deployed AIS server (set SHIP_TRACKER_URL env var or
+# GitHub Actions secret). When set, inbound/outbound counts come from live AIS.
+SHIP_TRACKER_URL = os.environ.get("SHIP_TRACKER_URL", "").rstrip("/")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -54,6 +60,30 @@ async def run_scrapers() -> list[dict]:
             print(f"  [{name}] {len(res)} vessels")
             records.extend(res)
     return records
+
+
+# ─────────────────────────────────────────────────────────────
+# Live AIS server (optional)
+# ─────────────────────────────────────────────────────────────
+
+async def fetch_live_counts() -> dict:
+    """
+    Fetch inbound/outbound counts from the deployed AIS server.
+    Returns {} if SHIP_TRACKER_URL is not set or the server is unreachable.
+    """
+    if not SHIP_TRACKER_URL:
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{SHIP_TRACKER_URL}/api/summary")
+            r.raise_for_status()
+            data = r.json()
+            print(f"  [AIS server] inbound={data.get('total_inbound',0)}"
+                  f" outbound={data.get('total_outbound',0)}")
+            return data
+    except Exception as e:
+        print(f"  [AIS server] unreachable: {e}")
+        return {}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -196,10 +226,19 @@ def _port_summary_rows(port_counts: dict) -> str:
     return rows
 
 
-def build_html(records: list[dict], stats: dict, generated_at: str, history: list) -> str:
+def build_html(records: list[dict], stats: dict, generated_at: str, history: list,
+               live: dict | None = None) -> str:
     total      = stats["total_in_port"]
     cargo      = stats["cargo_counts"]
     busiest    = stats["busiest_port"]
+    inbound    = (live or {}).get("total_inbound", 0)
+    outbound   = (live or {}).get("total_outbound", 0)
+    ais_live   = bool(live)
+
+    _dot = '<span class="ais-dot"></span>'
+    _off = '<span class="ais-offline">AIS offline</span> '
+    inbound_label  = f"{_dot}Inbound to India" if ais_live else f"{_off}Inbound"
+    outbound_label = f"{_dot}Outbound"          if ais_live else f"{_off}Outbound"
     hist_json  = json.dumps(history)
     vessel_rows     = _vessel_rows(records)
     port_rows       = _port_summary_rows(stats["port_counts"])
@@ -285,7 +324,8 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     main{{max-width:1200px;margin:36px auto;padding:0 24px 56px}}
 
     /* Stats strip */
-    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:32px}}
+    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:16px}}
+    .stats-cargo{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:32px}}
     .stat{{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 18px;box-shadow:var(--shadow);text-align:center}}
     .stat-num{{font-size:2.2rem;font-weight:800;letter-spacing:-.5px;line-height:1}}
     .stat-label{{font-size:.74rem;color:var(--muted);margin-top:6px}}
@@ -294,7 +334,11 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     .stat-cng     {{border-color:#10b98144}} .stat-cng     .stat-num{{color:#34d399}}
     .stat-petro   {{border-color:#f9731644}} .stat-petro   .stat-num{{color:#fb923c}}
     .stat-total   {{border-color:#e2e8f033}} .stat-total   .stat-num{{color:#e2e8f0}}
+    .stat-inbound {{border-color:#10b98144}} .stat-inbound .stat-num{{color:#10b981}}
+    .stat-outbound{{border-color:#f59e0b44}} .stat-outbound .stat-num{{color:#f59e0b}}
     .stat-busiest {{grid-column:span 2}}     .stat-busiest .stat-num{{font-size:1.3rem;color:var(--accent)}}
+    .ais-dot{{display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-right:5px;vertical-align:middle}}
+    .ais-offline{{color:var(--muted);font-size:.74rem}}
 
     /* Sections */
     .section{{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 24px 20px;box-shadow:var(--shadow);margin-bottom:28px}}
@@ -340,12 +384,24 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
 
 <main>
 
-  <!-- Stats strip -->
+  <!-- Pipeline row: inbound → at port → outbound -->
   <div class="stats">
+    <div class="stat stat-inbound">
+      <div class="stat-num">{inbound}</div>
+      <div class="stat-label">{inbound_label}</div>
+    </div>
     <div class="stat stat-total">
       <div class="stat-num">{total}</div>
-      <div class="stat-label">Total At Port</div>
+      <div class="stat-label">At Indian Ports</div>
     </div>
+    <div class="stat stat-outbound">
+      <div class="stat-num">{outbound}</div>
+      <div class="stat-label">{outbound_label}</div>
+    </div>
+  </div>
+
+  <!-- Cargo breakdown -->
+  <div class="stats-cargo">
     <div class="stat stat-crude">
       <div class="stat-num">{cargo.get("CRUDE", 0)}</div>
       <div class="stat-label">Crude Tankers</div>
@@ -439,7 +495,10 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
 
 async def _main():
     print("Running port scrapers...")
-    records = await run_scrapers()
+    records, live = await asyncio.gather(
+        run_scrapers(),
+        fetch_live_counts(),
+    )
     print(f"Total vessels scraped: {len(records)}")
 
     stats = compute_stats(records)
@@ -461,12 +520,14 @@ async def _main():
         "cng":         stats["cargo_counts"].get("CNG", 0),
         "petroleum":   stats["cargo_counts"].get("PETROLEUM", 0),
         "busiest_port": stats["busiest_port"],
+        "inbound":     live.get("total_inbound", 0),
+        "outbound":    live.get("total_outbound", 0),
     })
     save_history(history)
     print(f"History: {len(history)} point(s) saved to {HISTORY_FILE}")
 
     os.makedirs("docs", exist_ok=True)
-    html = build_html(records, stats, generated_at, history)
+    html = build_html(records, stats, generated_at, history, live)
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated docs/index.html at {generated_at} IST")

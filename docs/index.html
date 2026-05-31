@@ -25,7 +25,8 @@
     main{max-width:1200px;margin:36px auto;padding:0 24px 56px}
 
     /* Stats strip */
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:32px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:16px}
+    .stats-cargo{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:32px}
     .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 18px;box-shadow:var(--shadow);text-align:center}
     .stat-num{font-size:2.2rem;font-weight:800;letter-spacing:-.5px;line-height:1}
     .stat-label{font-size:.74rem;color:var(--muted);margin-top:6px}
@@ -34,7 +35,11 @@
     .stat-cng     {border-color:#10b98144} .stat-cng     .stat-num{color:#34d399}
     .stat-petro   {border-color:#f9731644} .stat-petro   .stat-num{color:#fb923c}
     .stat-total   {border-color:#e2e8f033} .stat-total   .stat-num{color:#e2e8f0}
+    .stat-inbound {border-color:#10b98144} .stat-inbound .stat-num{color:#10b981}
+    .stat-outbound{border-color:#f59e0b44} .stat-outbound .stat-num{color:#f59e0b}
     .stat-busiest {grid-column:span 2}     .stat-busiest .stat-num{font-size:1.3rem;color:var(--accent)}
+    .ais-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-right:5px;vertical-align:middle}
+    .ais-offline{color:var(--muted);font-size:.74rem}
 
     /* Sections */
     .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 24px 20px;box-shadow:var(--shadow);margin-bottom:28px}
@@ -73,19 +78,31 @@
     </div>
     <div class="hdr-links">
       <a class="badge" href="https://sushobhanpatankar.github.io/Ind_crude_oil/">&#128202; Crude Oil Prices</a>
-      <span class="badge">Updated: 31 May 2026, 06:05 PM IST</span>
+      <span class="badge">Updated: 31 May 2026, 06:13 PM IST</span>
     </div>
   </div>
 </header>
 
 <main>
 
-  <!-- Stats strip -->
+  <!-- Pipeline row: inbound → at port → outbound -->
   <div class="stats">
+    <div class="stat stat-inbound">
+      <div class="stat-num">0</div>
+      <div class="stat-label"><span class="ais-offline">AIS offline</span> Inbound</div>
+    </div>
     <div class="stat stat-total">
       <div class="stat-num">12</div>
-      <div class="stat-label">Total At Port</div>
+      <div class="stat-label">At Indian Ports</div>
     </div>
+    <div class="stat stat-outbound">
+      <div class="stat-num">0</div>
+      <div class="stat-label"><span class="ais-offline">AIS offline</span> Outbound</div>
+    </div>
+  </div>
+
+  <!-- Cargo breakdown -->
+  <div class="stats-cargo">
     <div class="stat stat-crude">
       <div class="stat-num">8</div>
       <div class="stat-label">Crude Tankers</div>
@@ -179,7 +196,7 @@
   </section>
 
   <div class="footer">
-    <span>Data fetched: 31 May 2026, 06:05 PM IST</span>
+    <span>Data fetched: 31 May 2026, 06:13 PM IST</span>
     <span class="sep">·</span>
     <span>Sources: JNPT · Paradip Port · Adani Mundra · Vizag Port</span>
     <span class="sep">·</span>
@@ -192,7 +209,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-  const H = [{"ts_utc": "2026-05-31T11:49:16Z", "ts_ist": "31 May, 05:19 PM", "total_in_port": 5, "crude": 2, "lng": 1, "cng": 0, "petroleum": 2, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T11:58:30Z", "ts_ist": "31 May, 05:28 PM", "total_in_port": 10, "crude": 6, "lng": 1, "cng": 0, "petroleum": 3, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T12:35:28Z", "ts_ist": "31 May, 06:05 PM", "total_in_port": 12, "crude": 8, "lng": 0, "cng": 0, "petroleum": 4, "busiest_port": "Mundra"}];
+  const H = [{"ts_utc": "2026-05-31T11:49:16Z", "ts_ist": "31 May, 05:19 PM", "total_in_port": 5, "crude": 2, "lng": 1, "cng": 0, "petroleum": 2, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T11:58:30Z", "ts_ist": "31 May, 05:28 PM", "total_in_port": 10, "crude": 6, "lng": 1, "cng": 0, "petroleum": 3, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T12:35:28Z", "ts_ist": "31 May, 06:05 PM", "total_in_port": 12, "crude": 8, "lng": 0, "cng": 0, "petroleum": 4, "busiest_port": "Mundra"}, {"ts_utc": "2026-05-31T12:43:10Z", "ts_ist": "31 May, 06:13 PM", "total_in_port": 12, "crude": 8, "lng": 0, "cng": 0, "petroleum": 4, "busiest_port": "Mundra", "inbound": 0, "outbound": 0}];
   const labels  = H.map(d => d.ts_ist);
   const inPort  = H.map(d => d.total_in_port);
   const crude   = H.map(d => d.crude);
