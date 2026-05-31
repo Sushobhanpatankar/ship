@@ -26,11 +26,6 @@ jobs:
 
       - name: Generate static dashboard
         run: python generate_dashboard.py
-        env:
-          # Set SHIP_TRACKER_URL in repo Settings → Secrets → Actions
-          # to your Railway deployment URL (e.g. https://ship-tracker.up.railway.app)
-          # Leave unset to generate without live AIS counts (inbound/outbound show 0)
-          SHIP_TRACKER_URL: ${{ secrets.SHIP_TRACKER_URL }}
 
       - name: Commit and push updated docs/
         run: |

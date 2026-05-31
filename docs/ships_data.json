@@ -41,6 +41,18 @@
       "busiest_port": "Mundra",
       "inbound": 0,
       "outbound": 0
+    },
+    {
+      "ts_utc": "2026-05-31T12:54:08Z",
+      "ts_ist": "31 May, 06:24 PM",
+      "total_in_port": 12,
+      "crude": 8,
+      "lng": 0,
+      "cng": 0,
+      "petroleum": 4,
+      "busiest_port": "Mundra",
+      "inbound": 0,
+      "outbound": 0
     }
   ]
 }

@@ -14,8 +14,6 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
-import httpx
-
 # ── Patch db.log_scraper_run to a no-op so scrapers run without a real DB ──
 import database.db as _db
 
@@ -29,12 +27,10 @@ from scrapers.mundra_scraper import MundraScraper       # noqa: E402
 from scrapers.paradip_scraper import ParadipScraper     # noqa: E402
 from scrapers.vizag_scraper import VizagScraper         # noqa: E402
 
-HISTORY_FILE = "docs/ships_data.json"
-MAX_HISTORY  = 336   # 7 days × 48 half-hours
-
-# Optional: URL of the deployed AIS server (set SHIP_TRACKER_URL env var or
-# GitHub Actions secret). When set, inbound/outbound counts come from live AIS.
-SHIP_TRACKER_URL = os.environ.get("SHIP_TRACKER_URL", "").rstrip("/")
+HISTORY_FILE    = "docs/ships_data.json"
+AIS_SNAPSHOT    = "docs/ais_snapshot.json"
+MAX_HISTORY     = 336   # 7 days × 48 half-hours
+SNAPSHOT_MAX_AGE_HOURS = 7   # treat snapshot as stale if older than this
 
 
 # ─────────────────────────────────────────────────────────────
@@ -63,26 +59,32 @@ async def run_scrapers() -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────
-# Live AIS server (optional)
+# AIS snapshot (written by fetch_ais_snapshot.py every 6 hours)
 # ─────────────────────────────────────────────────────────────
 
-async def fetch_live_counts() -> dict:
+def load_ais_snapshot() -> dict:
     """
-    Fetch inbound/outbound counts from the deployed AIS server.
-    Returns {} if SHIP_TRACKER_URL is not set or the server is unreachable.
+    Read docs/ais_snapshot.json written by fetch_ais_snapshot.py.
+    Returns {} if the file is missing or older than SNAPSHOT_MAX_AGE_HOURS.
     """
-    if not SHIP_TRACKER_URL:
+    if not os.path.exists(AIS_SNAPSHOT):
         return {}
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{SHIP_TRACKER_URL}/api/summary")
-            r.raise_for_status()
-            data = r.json()
-            print(f"  [AIS server] inbound={data.get('total_inbound',0)}"
-                  f" outbound={data.get('total_outbound',0)}")
-            return data
+        with open(AIS_SNAPSHOT, encoding="utf-8") as f:
+            data = json.load(f)
+        fetched_at = data.get("fetched_at", "")
+        if fetched_at:
+            ts = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
+            age = datetime.now(timezone.utc) - ts
+            if age > timedelta(hours=SNAPSHOT_MAX_AGE_HOURS):
+                print(f"  [AIS snapshot] stale ({age}), ignoring")
+                return {}
+        print(f"  [AIS snapshot] inbound={data.get('total_inbound',0)}"
+              f" outbound={data.get('total_outbound',0)}"
+              f" (from {data.get('fetched_at','')})")
+        return data
     except Exception as e:
-        print(f"  [AIS server] unreachable: {e}")
+        print(f"  [AIS snapshot] read error: {e}")
         return {}
 
 
@@ -495,11 +497,10 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
 
 async def _main():
     print("Running port scrapers...")
-    records, live = await asyncio.gather(
-        run_scrapers(),
-        fetch_live_counts(),
-    )
+    records = await run_scrapers()
     print(f"Total vessels scraped: {len(records)}")
+
+    live = load_ais_snapshot()
 
     stats = compute_stats(records)
     print(f"Stats: {stats['total_in_port']} in port, busiest={stats['busiest_port']}")
