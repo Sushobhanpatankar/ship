@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>India Energy Vessel Tracker</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <!-- Our styles -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- ===== Top Bar ===== -->
+  <div id="topbar">
+    <span id="ws-dot" class="ws-dot offline"></span>
+    <h1>🛢 India Energy Vessel Tracker</h1>
+    <span id="ws-status" style="font-size:0.75rem;color:#8b949e">Connecting…</span>
+    <span id="last-updated"></span>
+  </div>
+
+  <!-- ===== Stats Strip ===== -->
+  <div id="stats-strip">
+    <div class="stat-chip">
+      <span class="stat-label">Inbound:</span>
+      <span class="stat-value" id="stat-inbound">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">Outbound:</span>
+      <span class="stat-value" id="stat-outbound">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">In Port:</span>
+      <span class="stat-value" id="stat-inport">—</span>
+    </div>
+    <div style="width:1px;background:#30363d;margin:0 4px"></div>
+    <div class="stat-chip">
+      <span class="stat-label">Crude:</span>
+      <span class="stat-value crude" id="stat-crude">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">LNG:</span>
+      <span class="stat-value lng" id="stat-lng">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">CNG:</span>
+      <span class="stat-value cng" id="stat-cng">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">Petroleum:</span>
+      <span class="stat-value petro" id="stat-petroleum">—</span>
+    </div>
+    <div style="width:1px;background:#30363d;margin:0 4px"></div>
+    <div class="stat-chip">
+      <span class="stat-label">Busiest Port:</span>
+      <span class="stat-value port-name" id="stat-port">—</span>
+    </div>
+  </div>
+
+  <!-- ===== Filter Bar ===== -->
+  <div id="filter-bar">
+    <span>Filter:</span>
+    <button class="filter-btn active"   data-cargo="ALL">All</button>
+    <button class="filter-btn crude"    data-cargo="CRUDE">Crude</button>
+    <button class="filter-btn lng"      data-cargo="LNG">LNG</button>
+    <button class="filter-btn cng"      data-cargo="CNG">CNG</button>
+    <button class="filter-btn petro"    data-cargo="PETROLEUM">Petroleum</button>
+  </div>
+
+  <!-- ===== Tab Bar ===== -->
+  <div id="tab-bar">
+    <button class="tab-btn active" data-tab="map">🗺 Map</button>
+    <button class="tab-btn"        data-tab="inbound">↘ Inbound</button>
+    <button class="tab-btn"        data-tab="outbound">↗ Outbound</button>
+    <button class="tab-btn"        data-tab="port">⚓ In Port</button>
+  </div>
+
+  <!-- ===== Content ===== -->
+  <div id="content">
+
+    <!-- Map panel -->
+    <div id="map-panel" class="tab-panel active">
+      <div id="map"></div>
+    </div>
+
+    <!-- Inbound panel -->
+    <div id="inbound-panel" class="tab-panel">
+      <div class="table-wrapper">
+        <div class="table-title">Ships heading TO India with energy cargo</div>
+        <table class="data-table" id="inbound-table">
+          <thead>
+            <tr>
+              <th>Vessel</th>
+              <th>Cargo</th>
+              <th>Position</th>
+              <th>Speed</th>
+              <th>Destination</th>
+              <th>Distance</th>
+              <th>Nearest Port</th>
+              <th>ETA</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="9" class="no-data">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Outbound panel -->
+    <div id="outbound-panel" class="tab-panel">
+      <div class="table-wrapper">
+        <div class="table-title">Ships leaving India (ballast — heading to pick up cargo)</div>
+        <table class="data-table" id="outbound-table">
+          <thead>
+            <tr>
+              <th>Vessel</th>
+              <th>Cargo</th>
+              <th>Position</th>
+              <th>Speed</th>
+              <th>Departed From</th>
+              <th>Departure Time</th>
+              <th>Heading To</th>
+              <th>Ballast</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="8" class="no-data">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- In Port panel -->
+    <div id="port-panel" class="tab-panel">
+      <div class="table-wrapper">
+        <div class="table-title">Ships at Indian ports — loading / unloading energy cargo</div>
+        <table class="data-table" id="port-table">
+          <thead>
+            <tr>
+              <th>Vessel</th>
+              <th>Cargo</th>
+              <th>Port</th>
+              <th>Berth</th>
+              <th>Activity</th>
+              <th>Arrival</th>
+              <th>Expected Departure</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="8" class="no-data">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /#content -->
+
+  <!-- Leaflet JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- App scripts (order matters) -->
+  <script src="/static/js/filters.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/tables.js"></script>
+  <script src="/static/js/websocket_client.js"></script>
+  <script src="/static/js/app.js"></script>
+
+</body>
+</html>

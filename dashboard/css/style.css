@@ -1,0 +1,239 @@
+/* ===== Reset & base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== Top bar ===== */
+#topbar {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+#topbar h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #58a6ff;
+  white-space: nowrap;
+}
+.ws-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #3fb950;
+  flex-shrink: 0;
+  transition: background 0.4s;
+}
+.ws-dot.offline { background: #f85149; }
+#last-updated { font-size: 0.75rem; color: #8b949e; margin-left: auto; }
+
+/* ===== Stats strip ===== */
+#stats-strip {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 6px 18px;
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.stat-label { color: #8b949e; }
+.stat-value { font-weight: 700; color: #e6edf3; }
+.stat-value.crude { color: #d29922; }
+.stat-value.lng   { color: #58a6ff; }
+.stat-value.cng   { color: #3fb950; }
+.stat-value.petro { color: #f0883e; }
+
+/* ===== Filter bar ===== */
+#filter-bar {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 6px 18px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+#filter-bar span { font-size: 0.75rem; color: #8b949e; margin-right: 4px; }
+.filter-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+.filter-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 600; }
+.filter-btn.crude  { --accent: #d29922; }
+.filter-btn.lng    { --accent: #58a6ff; }
+.filter-btn.cng    { --accent: #3fb950; }
+.filter-btn.petro  { --accent: #f0883e; }
+.filter-btn.crude.active  { background: #d29922; border-color: #d29922; }
+.filter-btn.lng.active    { background: #1f6feb; border-color: #1f6feb; }
+.filter-btn.cng.active    { background: #238636; border-color: #238636; }
+.filter-btn.petro.active  { background: #9e6a03; border-color: #9e6a03; }
+
+/* ===== Tab bar ===== */
+#tab-bar {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  display: flex;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: #e6edf3; }
+.tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+/* ===== Content area ===== */
+#content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.tab-panel {
+  display: none;
+  height: 100%;
+  overflow: auto;
+}
+.tab-panel.active { display: block; }
+
+/* ===== Map panel ===== */
+#map-panel { display: none; }
+#map-panel.active { display: block; }
+#map { height: 100%; width: 100%; }
+
+/* ===== Tables ===== */
+.table-wrapper { padding: 16px; }
+.table-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #8b949e;
+  margin-bottom: 10px;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.data-table th {
+  background: #161b22;
+  color: #8b949e;
+  font-weight: 600;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #30363d;
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #21262d;
+  vertical-align: middle;
+}
+.data-table tr:hover td { background: #161b22; }
+
+/* Cargo badges */
+.cargo-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-CRUDE     { background: #3d2c00; color: #d29922; }
+.badge-LNG       { background: #0d2a4d; color: #58a6ff; }
+.badge-CNG       { background: #0d2a1a; color: #3fb950; }
+.badge-PETROLEUM { background: #3d1f00; color: #f0883e; }
+.badge-OTHER     { background: #21262d; color: #8b949e; }
+
+/* Activity badges */
+.activity-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.act-LOADING    { background: #1a3d1a; color: #3fb950; }
+.act-UNLOADING  { background: #3d1a00; color: #f0883e; }
+.act-ANCHORED   { background: #1a2d3d; color: #58a6ff; }
+.act-BERTHED    { background: #2d2d00; color: #d29922; }
+.act-MANEUVERING{ background: #2d1a2d; color: #bc8cff; }
+.act-UNKNOWN    { background: #21262d; color: #8b949e; }
+
+/* No data */
+.no-data {
+  text-align: center;
+  color: #8b949e;
+  padding: 40px;
+  font-size: 0.85rem;
+}
+
+/* Speed / distance values */
+.num { font-variant-numeric: tabular-nums; color: #a5d6ff; }
+.port-name { color: #3fb950; font-weight: 500; }
+
+/* Source chip */
+.source-chip {
+  font-size: 0.65rem;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1px 5px;
+}
+
+/* Leaflet popup dark theme override */
+.leaflet-popup-content-wrapper {
+  background: #161b22 !important;
+  color: #e6edf3 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 8px !important;
+}
+.leaflet-popup-tip { background: #161b22 !important; }
+.popup-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+.popup-row { display: flex; justify-content: space-between; gap: 12px; font-size: 0.78rem; margin: 2px 0; }
+.popup-key { color: #8b949e; }
+.popup-val { color: #e6edf3; font-weight: 500; }
+
+/* Ship direction arrow on map */
+.ship-icon {
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 3px rgba(0,0,0,0.8);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
