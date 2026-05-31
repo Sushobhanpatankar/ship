@@ -23,6 +23,7 @@ async def _noop(*args, **kwargs):
 _db.log_scraper_run = _noop
 
 from scrapers.jnpt_scraper import JNPTScraper          # noqa: E402
+from scrapers.kochi_scraper import KochiScraper         # noqa: E402
 from scrapers.mundra_scraper import MundraScraper       # noqa: E402
 from scrapers.paradip_scraper import ParadipScraper     # noqa: E402
 from scrapers.vizag_scraper import VizagScraper         # noqa: E402
@@ -40,6 +41,7 @@ SNAPSHOT_MAX_AGE_HOURS = 7   # treat snapshot as stale if older than this
 async def run_scrapers() -> list[dict]:
     scrapers = [
         ("JNPT",    JNPTScraper()),
+        ("Kochi",   KochiScraper()),
         ("Paradip", ParadipScraper()),
         ("Mundra",  MundraScraper()),
         ("Vizag",   VizagScraper()),
