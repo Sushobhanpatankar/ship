@@ -523,6 +523,9 @@ async def _main():
         "busiest_port": stats["busiest_port"],
         "inbound":     live.get("total_inbound", 0),
         "outbound":    live.get("total_outbound", 0),
+        "berthed":     sum(1 for r in records if r.get("activity") == "BERTHED"),
+        "anchored":    sum(1 for r in records if r.get("activity") == "ANCHORED"),
+        "ports":       {p: c["total"] for p, c in stats["port_counts"].items()},
     })
     save_history(history)
     print(f"History: {len(history)} point(s) saved to {HISTORY_FILE}")
