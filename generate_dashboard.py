@@ -378,7 +378,7 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
       </div>
     </div>
     <div class="hdr-links">
-      <a class="badge" href="https://sushobhanpatankar.github.io/Ind_crude_oil/">&#128202; Crude Oil Prices</a>
+      <a class="badge" href="https://sushobhanpatankar.github.io/Ind_crude_oil/" target="_blank" rel="noopener">&#128202; Crude Oil Prices</a>
       <span class="badge">Updated: {generated_at} IST</span>
     </div>
   </div>
