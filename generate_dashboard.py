@@ -22,11 +22,13 @@ async def _noop(*args, **kwargs):
 
 _db.log_scraper_run = _noop
 
-from scrapers.jnpt_scraper import JNPTScraper          # noqa: E402
-from scrapers.kochi_scraper import KochiScraper         # noqa: E402
-from scrapers.mundra_scraper import MundraScraper       # noqa: E402
-from scrapers.paradip_scraper import ParadipScraper     # noqa: E402
-from scrapers.vizag_scraper import VizagScraper         # noqa: E402
+from scrapers.jnpt_scraper import JNPTScraper                          # noqa: E402
+from scrapers.kochi_scraper import KochiScraper                         # noqa: E402
+from scrapers.mundra_scraper import MundraScraper                       # noqa: E402
+from scrapers.mundra_expected_scraper import MundraExpectedScraper      # noqa: E402
+from scrapers.paradip_scraper import ParadipScraper                     # noqa: E402
+from scrapers.paradip_expected_scraper import ParadipExpectedScraper    # noqa: E402
+from scrapers.vizag_scraper import VizagScraper                         # noqa: E402
 
 HISTORY_FILE    = "docs/ships_data.json"
 AIS_SNAPSHOT    = "docs/ais_snapshot.json"
@@ -60,8 +62,29 @@ async def run_scrapers() -> list[dict]:
     return records
 
 
+async def run_expected_scrapers() -> list[dict]:
+    scrapers = [
+        ("ParadipExpected", ParadipExpectedScraper()),
+        ("MundraExpected",  MundraExpectedScraper()),
+    ]
+    results = await asyncio.gather(
+        *[s.run() for _, s in scrapers],
+        return_exceptions=True,
+    )
+    records: list[dict] = []
+    for (name, _), res in zip(scrapers, results):
+        if isinstance(res, Exception):
+            print(f"  [{name}] expected scraper error: {res}")
+        else:
+            print(f"  [{name}] {len(res)} expected vessels")
+            records.extend(res)
+    # Sort by ETA (soonest first); records without ETA go to the end
+    records.sort(key=lambda r: r.get("eta", "9999"))
+    return records
+
+
 # ─────────────────────────────────────────────────────────────
-# AIS snapshot (written by fetch_ais_snapshot.py every 6 hours)
+# AIS snapshot (written by fetch_ais_snapshot.py every 2 hours)
 # ─────────────────────────────────────────────────────────────
 
 def load_ais_snapshot() -> dict:
@@ -235,6 +258,69 @@ def _port_summary_rows(port_counts: dict) -> str:
     return rows
 
 
+def _direction_badge(direction: str) -> str:
+    if direction == "INBOUND":
+        return ('<span style="font-size:.72rem;font-weight:600;padding:3px 8px;'
+                'border-radius:10px;background:#10b98122;color:#10b981;border:1px solid #10b98144">'
+                '&#8595; INBOUND</span>')
+    return ('<span style="font-size:.72rem;font-weight:600;padding:3px 8px;'
+            'border-radius:10px;background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44">'
+            '&#8593; OUTBOUND</span>')
+
+
+def _expected_arrival_rows(records: list[dict]) -> str:
+    # Only show INBOUND expected vessels (arriving to discharge cargo)
+    inbound = [r for r in records if r.get("direction", "INBOUND") == "INBOUND"]
+    if not inbound:
+        return ('<tr><td colspan="6" style="text-align:center;color:#8892a4;padding:24px">'
+                'No expected arrivals found — port sites may be updating.</td></tr>')
+    rows = ""
+    for r in inbound:
+        name  = (r.get("ship_name") or "Unknown")[:28]
+        cargo = r.get("cargo_category", "OTHER")
+        port  = r.get("port_name", "—")
+        eta   = r.get("eta", "—")
+        qty   = r.get("quantity_mt", 0)
+        qty_str = f"{qty:,}" if qty else "—"
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='font-variant-numeric:tabular-nums;color:#10b981'>{eta}</td>"
+            f"<td style='text-align:right;font-size:.78rem;color:#8892a4'>{qty_str}</td>"
+            f"<td style='font-size:.72rem;color:#8892a4'>{r.get('source','')}</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
+def _expected_outbound_rows(records: list[dict]) -> str:
+    # Ships arriving to LOAD (i.e. will leave India with cargo)
+    outbound = [r for r in records if r.get("direction") == "OUTBOUND"]
+    if not outbound:
+        return ('<tr><td colspan="5" style="text-align:center;color:#8892a4;padding:24px">'
+                'No outbound loadings scheduled.</td></tr>')
+    rows = ""
+    for r in outbound:
+        name  = (r.get("ship_name") or "Unknown")[:28]
+        cargo = r.get("cargo_category", "OTHER")
+        port  = r.get("port_name", "—")
+        eta   = r.get("eta", "—")
+        qty   = r.get("quantity_mt", 0)
+        qty_str = f"{qty:,}" if qty else "—"
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='font-variant-numeric:tabular-nums;color:#f59e0b'>{eta}</td>"
+            f"<td style='text-align:right;font-size:.78rem;color:#8892a4'>{qty_str}&nbsp;MT</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
 def _inbound_rows(vessels: list[dict]) -> str:
     if not vessels:
         return ('<tr><td colspan="7" style="text-align:center;color:#8892a4;padding:24px">'
@@ -293,13 +379,19 @@ def _outbound_rows(vessels: list[dict]) -> str:
 
 
 def build_html(records: list[dict], stats: dict, generated_at: str, history: list,
-               live: dict | None = None) -> str:
+               live: dict | None = None, expected: list | None = None) -> str:
     total      = stats["total_in_port"]
     cargo      = stats["cargo_counts"]
     busiest    = stats["busiest_port"]
     inbound    = (live or {}).get("total_inbound", 0)
     outbound   = (live or {}).get("total_outbound", 0)
     ais_live   = bool(live)
+
+    expected          = expected or []
+    exp_inbound_count  = sum(1 for r in expected if r.get("direction", "INBOUND") == "INBOUND")
+    exp_outbound_count = sum(1 for r in expected if r.get("direction") == "OUTBOUND")
+    exp_arrival_rows   = _expected_arrival_rows(expected)
+    exp_outbound_rows  = _expected_outbound_rows(expected)
 
     inbound_vessels  = (live or {}).get("inbound", [])
     outbound_vessels = (live or {}).get("outbound", [])
@@ -507,7 +599,61 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     </div>
   </div>
 
-  <!-- Inbound / Outbound movement tables -->
+  <!-- Expected vessel arrivals (port-scheduled) -->
+  <div class="movement-grid">
+
+    <section class="section inbound-section">
+      <div class="section-header">
+        <h2 class="section-title">Expected Arrivals
+          <span class="section-sub">({exp_inbound_count} vessels · Paradip &amp; Mundra port schedules)</span>
+        </h2>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Vessel</th>
+            <th>Cargo</th>
+            <th>Port</th>
+            <th>ETA</th>
+            <th style="text-align:right">Qty&nbsp;(MT)</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {exp_arrival_rows}
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="section outbound-section">
+      <div class="section-header">
+        <h2 class="section-title">Expected Loadings
+          <span class="section-sub">({exp_outbound_count} vessels · arriving to load &amp; depart)</span>
+        </h2>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Vessel</th>
+            <th>Cargo</th>
+            <th>Port</th>
+            <th>ETA to Port</th>
+            <th style="text-align:right">Qty&nbsp;(MT)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {exp_outbound_rows}
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- AIS live inbound / outbound (when AIS snapshot is fresh) -->
   <div class="movement-grid">
 
     <section class="section inbound-section">
@@ -634,8 +780,12 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
 
 async def _main():
     print("Running port scrapers...")
-    records = await run_scrapers()
+    records, expected = await asyncio.gather(
+        run_scrapers(),
+        run_expected_scrapers(),
+    )
     print(f"Total vessels scraped: {len(records)}")
+    print(f"Total expected arrivals: {len(expected)}")
 
     live = load_ais_snapshot()
 
@@ -668,7 +818,7 @@ async def _main():
     print(f"History: {len(history)} point(s) saved to {HISTORY_FILE}")
 
     os.makedirs("docs", exist_ok=True)
-    html = build_html(records, stats, generated_at, history, live)
+    html = build_html(records, stats, generated_at, history, live, expected)
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated docs/index.html at {generated_at} IST")
