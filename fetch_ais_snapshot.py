@@ -126,6 +126,8 @@ def _build_record(mmsi: str, role: str) -> dict:
         "distance_nm":    round(dist, 1),
         "speed":          pos["speed"],
         "course":         pos["course"],
+        "lat":            round(pos["lat"], 4),
+        "lon":            round(pos["lon"], 4),
         "role":           role,
     }
 

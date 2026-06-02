@@ -31,7 +31,7 @@ from scrapers.vizag_scraper import VizagScraper         # noqa: E402
 HISTORY_FILE    = "docs/ships_data.json"
 AIS_SNAPSHOT    = "docs/ais_snapshot.json"
 MAX_HISTORY     = 336   # 7 days × 48 half-hours
-SNAPSHOT_MAX_AGE_HOURS = 7   # treat snapshot as stale if older than this
+SNAPSHOT_MAX_AGE_HOURS = 3   # treat snapshot as stale if older than this (snapshots run every 2h)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -180,6 +180,11 @@ def _activity_badge(activity: str) -> str:
             f'{activity}</span>')
 
 
+def _course_arrow(course: float) -> str:
+    directions = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
+    return directions[round(course / 45) % 8]
+
+
 def _vessel_rows(records: list[dict]) -> str:
     if not records:
         return '<tr><td colspan="6" style="text-align:center;color:#8892a4;padding:24px">No vessel data scraped yet — port scrapers may be rate-limited.</td></tr>'
@@ -230,6 +235,63 @@ def _port_summary_rows(port_counts: dict) -> str:
     return rows
 
 
+def _inbound_rows(vessels: list[dict]) -> str:
+    if not vessels:
+        return ('<tr><td colspan="7" style="text-align:center;color:#8892a4;padding:24px">'
+                'No inbound vessels detected — AIS snapshot may be empty or stale.</td></tr>')
+    rows = ""
+    for v in vessels:
+        name   = (v.get("ship_name") or "Unknown")[:28]
+        cargo  = v.get("cargo_category", "OTHER")
+        port   = v.get("nearest_port", "—")
+        dist   = v.get("distance_nm", "—")
+        speed  = float(v.get("speed") or 0)
+        dest   = (v.get("destination") or "—")[:20]
+        if speed > 0.5 and isinstance(dist, (int, float)):
+            eta_h = dist / speed
+            eta_str = f"{eta_h:.1f}&nbsp;h" if eta_h < 24 else f"{eta_h/24:.1f}&nbsp;d"
+        else:
+            eta_str = "—"
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='text-align:right;font-variant-numeric:tabular-nums'>{dist}</td>"
+            f"<td style='text-align:right;font-variant-numeric:tabular-nums'>{speed:.1f}</td>"
+            f"<td style='font-size:.78rem;color:#8892a4'>{dest}</td>"
+            f"<td style='text-align:center'>{eta_str}</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
+def _outbound_rows(vessels: list[dict]) -> str:
+    if not vessels:
+        return ('<tr><td colspan="6" style="text-align:center;color:#8892a4;padding:24px">'
+                'No outbound vessels detected — AIS snapshot may be empty or stale.</td></tr>')
+    rows = ""
+    for v in vessels:
+        name   = (v.get("ship_name") or "Unknown")[:28]
+        cargo  = v.get("cargo_category", "OTHER")
+        port   = v.get("nearest_port", "—")
+        dist   = v.get("distance_nm", "—")
+        speed  = float(v.get("speed") or 0)
+        course = float(v.get("course") or 0)
+        arrow  = _course_arrow(course)
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='text-align:right;font-variant-numeric:tabular-nums'>{dist}</td>"
+            f"<td style='text-align:right;font-variant-numeric:tabular-nums'>{speed:.1f}</td>"
+            f"<td style='text-align:center'>{arrow} {int(course)}&deg;</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
 def build_html(records: list[dict], stats: dict, generated_at: str, history: list,
                live: dict | None = None) -> str:
     total      = stats["total_in_port"]
@@ -238,6 +300,18 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     inbound    = (live or {}).get("total_inbound", 0)
     outbound   = (live or {}).get("total_outbound", 0)
     ais_live   = bool(live)
+
+    inbound_vessels  = (live or {}).get("inbound", [])
+    outbound_vessels = (live or {}).get("outbound", [])
+    ais_fetched_at   = (live or {}).get("fetched_at", "")
+    mov_inbound_rows  = _inbound_rows(inbound_vessels)
+    mov_outbound_rows = _outbound_rows(outbound_vessels)
+    ais_note = (f'<span class="stale-note">AIS: {ais_fetched_at} UTC</span>'
+                if ais_fetched_at else "")
+    ais_footer = (f'AIS snapshot: {ais_fetched_at} UTC'
+                  if ais_fetched_at else 'AIS snapshots run every 2 h via GitHub Actions')
+    inbound_count_label  = f"{inbound} vessel{'s' if inbound != 1 else ''}"
+    outbound_count_label = f"{outbound} vessel{'s' if outbound != 1 else ''}"
 
     _dot = '<span class="ais-dot"></span>'
     _off = '<span class="ais-offline">AIS offline</span> '
@@ -367,6 +441,11 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
       .stat-busiest{{grid-column:span 2}}
       h1{{font-size:1.1rem}}
     }}
+    .movement-grid{{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}}
+    .inbound-section .section-title{{color:#10b981}}
+    .outbound-section .section-title{{color:#f59e0b}}
+    .stale-note{{font-size:.72rem;color:var(--muted);font-style:italic;margin-left:8px}}
+    @media(max-width:900px){{.movement-grid{{grid-template-columns:1fr}}}}
   </style>
 </head>
 <body>
@@ -428,6 +507,62 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     </div>
   </div>
 
+  <!-- Inbound / Outbound movement tables -->
+  <div class="movement-grid">
+
+    <section class="section inbound-section">
+      <div class="section-header">
+        <h2 class="section-title">Inbound to India
+          <span class="section-sub">({inbound_count_label}){ais_note}</span>
+        </h2>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Vessel</th>
+            <th>Cargo</th>
+            <th>Nearest Port</th>
+            <th style="text-align:right">Dist&nbsp;(nm)</th>
+            <th style="text-align:right">Speed&nbsp;(kn)</th>
+            <th>Destination</th>
+            <th style="text-align:center">ETA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mov_inbound_rows}
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="section outbound-section">
+      <div class="section-header">
+        <h2 class="section-title">Outbound from India
+          <span class="section-sub">({outbound_count_label}){ais_note}</span>
+        </h2>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Vessel</th>
+            <th>Cargo</th>
+            <th>Nearest Port</th>
+            <th style="text-align:right">Dist&nbsp;(nm)</th>
+            <th style="text-align:right">Speed&nbsp;(kn)</th>
+            <th style="text-align:center">Heading</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mov_outbound_rows}
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+  </div>
+
   <!-- History chart -->
   {chart_section}
 
@@ -484,7 +619,7 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     <span class="sep">·</span>
     <span>Auto-updates every 30 minutes via GitHub Actions</span>
     <span class="sep">·</span>
-    <span>AIS layer active when ship tracker server is running</span>
+    <span>{ais_footer}</span>
   </div>
 
 </main>

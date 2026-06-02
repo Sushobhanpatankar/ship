@@ -2,7 +2,7 @@ name: Fetch AIS Snapshot
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours  (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: "0 */2 * * *"   # every 2 hours  (00:00, 02:00, 04:00 … UTC)
   workflow_dispatch:          # manual trigger from GitHub UI
 
 permissions:
