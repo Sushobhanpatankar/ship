@@ -772,6 +772,23 @@
       "ports": {
         "Paradip": 4
       }
+    },
+    {
+      "ts_utc": "2026-06-05T04:56:14Z",
+      "ts_ist": "05 Jun, 10:26 AM",
+      "total_in_port": 4,
+      "crude": 4,
+      "lng": 0,
+      "cng": 0,
+      "petroleum": 0,
+      "busiest_port": "Paradip",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 4,
+      "anchored": 0,
+      "ports": {
+        "Paradip": 4
+      }
     }
   ]
 }
