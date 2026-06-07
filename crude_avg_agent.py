@@ -164,14 +164,27 @@ def main() -> None:
     client = genai.Client(api_key=api_key)
     prompt = _build_prompt(data)
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        analysis = response.text
-    except Exception as exc:
-        print(f"Error: Gemini API call failed: {exc}", file=sys.stderr)
+    import time
+    analysis = None
+    for model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"):
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(model=model, contents=prompt)
+                analysis = response.text
+                break
+            except Exception as exc:
+                msg = str(exc)
+                if "503" in msg or "UNAVAILABLE" in msg:
+                    wait = 8 * (attempt + 1)
+                    print(f"  [{model}] 503 overloaded, retrying in {wait}s…", file=sys.stderr)
+                    time.sleep(wait)
+                    continue
+                print(f"  [{model}] failed: {exc}", file=sys.stderr)
+                break
+        if analysis is not None:
+            break
+    if analysis is None:
+        print("Error: all Gemini models failed.", file=sys.stderr)
         sys.exit(1)
 
     if args.output:

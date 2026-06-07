@@ -1,0 +1,43 @@
+name: Vessel Watch Agent
+
+on:
+  schedule:
+    - cron: "0 6 * * *"    # 06:00 UTC daily
+    - cron: "0 18 * * *"   # 18:00 UTC daily
+  workflow_dispatch:         # manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run vessel watch agent
+        run: python vessel_watch_agent.py -p
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Regenerate dashboard
+        run: python generate_dashboard.py
+
+      - name: Commit outputs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/vessel_watch.json docs/vessel_watch_analysis.txt \
+                  docs/index.html docs/ships_data.json
+          git diff --cached --quiet || git commit -m "chore: vessel watch update [skip ci]"
+          git push

@@ -34,9 +34,12 @@ HISTORY_FILE    = "docs/ships_data.json"
 AIS_SNAPSHOT    = "docs/ais_snapshot.json"
 CRUDE_WEEKLY    = "docs/crude_weekly_avg.json"
 CRUDE_ANALYSIS  = "docs/crude_analysis.txt"
+VESSEL_WATCH    = "docs/vessel_watch.json"
+VESSEL_WATCH_ANALYSIS = "docs/vessel_watch_analysis.txt"
 MAX_HISTORY     = 336   # 7 days × 48 half-hours
 SNAPSHOT_MAX_AGE_HOURS = 3   # treat snapshot as stale if older than this (snapshots run every 2h)
 CRUDE_MAX_AGE_HOURS    = 48  # show crude data up to 48h old, then flag as stale
+WATCH_MAX_AGE_HOURS    = 14  # show vessel watch data up to 14h old (runs twice daily)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -156,6 +159,45 @@ def load_crude_analysis() -> str:
         return text
     except Exception as e:
         print(f"  [Crude analysis] read error: {e}")
+        return ""
+
+
+def load_vessel_watch() -> dict:
+    """Load docs/vessel_watch.json if present and not too old."""
+    if not os.path.exists(VESSEL_WATCH):
+        return {}
+    try:
+        with open(VESSEL_WATCH, encoding="utf-8") as f:
+            data = json.load(f)
+        generated_at = data.get("generated_at", "")
+        stale = False
+        age_str = ""
+        if generated_at:
+            ts = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            age = datetime.now(timezone.utc) - ts
+            stale = age > timedelta(hours=WATCH_MAX_AGE_HOURS)
+            hours = int(age.total_seconds() // 3600)
+            age_str = f"{hours}h ago" if hours < 48 else f"{age.days}d ago"
+        data["_stale"] = stale
+        data["_age_str"] = age_str
+        print(f"  [Vessel watch] loaded (generated {age_str}{'  — stale' if stale else ''})")
+        return data
+    except Exception as e:
+        print(f"  [Vessel watch] read error: {e}")
+        return {}
+
+
+def load_vessel_watch_analysis() -> str:
+    """Load the Gemini vessel watch analysis from docs/vessel_watch_analysis.txt."""
+    if not os.path.exists(VESSEL_WATCH_ANALYSIS):
+        return ""
+    try:
+        with open(VESSEL_WATCH_ANALYSIS, encoding="utf-8") as f:
+            text = f.read().strip()
+        print(f"  [Vessel watch analysis] loaded ({len(text)} chars)")
+        return text
+    except Exception as e:
+        print(f"  [Vessel watch analysis] read error: {e}")
         return ""
 
 
@@ -630,9 +672,149 @@ def _crude_insight_section(crude_data: dict, analysis: str) -> str:
   </section>"""
 
 
+_ZONE_ICONS = {
+    "Persian Gulf":                       "&#127467;",
+    "Red Sea / Gulf of Aden":             "&#127465;",
+    "Gulf of Aden / Arabian Sea entrance":"&#127465;",
+    "Arabian Sea":                        "&#127470;",
+    "Bay of Bengal":                      "&#127470;",
+    "Indian Ocean (west)":                "&#127470;",
+    "Indian Ocean (south)":               "&#127470;",
+    "Strait of Malacca":                  "&#127474;",
+    "South China Sea":                    "&#127464;",
+    "Atlantic / South Africa":            "&#127467;",
+}
+
+
+def _vessel_watch_section(watch: dict, analysis: str) -> str:
+    """Build the HTML for the Fleet Watch section."""
+    if not watch:
+        return ""
+
+    stale   = watch.get("_stale", False)
+    age_str = watch.get("_age_str", "")
+    totals  = watch.get("totals", {})
+    zones   = watch.get("sea_zones", {})
+    gen_at  = watch.get("generated_at", "")
+    ais_stale = watch.get("ais_stale", True)
+
+    stale_badge = (f'<span style="font-size:.7rem;color:#ef4444;margin-left:8px">'
+                   f'&#9888; data {age_str} old</span>') if stale else ""
+    fresh_badge = (f'<span style="font-size:.7rem;color:#10b981;margin-left:8px">'
+                   f'updated {age_str}</span>') if age_str and not stale else ""
+    ais_warn    = (' <span style="font-size:.7rem;color:#f59e0b">(AIS stale)</span>'
+                   if ais_stale else "")
+
+    at_p   = totals.get("at_port",  0)
+    inb    = totals.get("inbound",  0)
+    outb   = totals.get("outbound", 0)
+    ic     = totals.get("inbound_counts",  {})
+    oc     = totals.get("outbound_counts", {})
+    ac     = totals.get("at_port_counts",  {})
+
+    # Summary cards
+    cards_html = f"""
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
+      <div class="crude-card" style="background:#10b98108;border-color:#10b98122">
+        <div class="crude-card-num" style="color:#10b981">{inb}</div>
+        <div class="crude-card-label" style="color:#10b981">Inbound{ais_warn}</div>
+        <div class="crude-card-sub">Crude {ic.get('CRUDE',0)} · LNG {ic.get('LNG',0)} · CNG {ic.get('CNG',0)}</div>
+      </div>
+      <div class="crude-card" style="background:#3b82f608;border-color:#3b82f622">
+        <div class="crude-card-num" style="color:#60a5fa">{at_p}</div>
+        <div class="crude-card-label" style="color:#60a5fa">At Indian Ports</div>
+        <div class="crude-card-sub">Crude {ac.get('CRUDE',0)} · LNG {ac.get('LNG',0)} · CNG {ac.get('CNG',0)}</div>
+      </div>
+      <div class="crude-card" style="background:#f59e0b08;border-color:#f59e0b22">
+        <div class="crude-card-num" style="color:#f59e0b">{outb}</div>
+        <div class="crude-card-label" style="color:#f59e0b">Outbound</div>
+        <div class="crude-card-sub">Crude {oc.get('CRUDE',0)} · LNG {oc.get('LNG',0)} · CNG {oc.get('CNG',0)}</div>
+      </div>
+    </div>"""
+
+    # Sea zone breakdown
+    zone_rows = ""
+    total_zoned = sum(zones.values()) or 1
+    for zone, cnt in sorted(zones.items(), key=lambda x: -x[1]):
+        icon  = _ZONE_ICONS.get(zone, "&#127758;")
+        share = int(cnt / total_zoned * 100)
+        zone_rows += f"""
+        <tr>
+          <td>{icon} {zone}</td>
+          <td style="text-align:right;color:#10b981">{cnt}</td>
+          <td>
+            <div style="background:#2e3352;border-radius:4px;height:7px;width:100%;min-width:60px">
+              <div style="background:#10b981;border-radius:4px;height:7px;width:{share}%"></div>
+            </div>
+          </td>
+          <td style="text-align:right;color:#8892a4;font-size:.78rem">{share}%</td>
+        </tr>"""
+
+    zone_table = ""
+    if zone_rows:
+        zone_table = f"""
+    <div style="margin-top:0">
+      <div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:10px;
+                  text-transform:uppercase;letter-spacing:.05em">Inbound Sea Zones</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Sea Zone</th>
+            <th style="text-align:right">Vessels</th>
+            <th style="min-width:100px">Share</th>
+            <th style="text-align:right">%</th>
+          </tr>
+        </thead>
+        <tbody>{zone_rows}
+        </tbody>
+      </table>
+    </div>"""
+
+    # Gemini analysis
+    analysis_html = ""
+    if analysis:
+        safe = analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        paragraphs = "".join(
+            f"<p style='margin-bottom:.7em'>{p.strip()}</p>"
+            for p in safe.split("\n\n") if p.strip()
+        )
+        analysis_html = f"""
+    <details style="margin-top:20px">
+      <summary style="cursor:pointer;font-size:.85rem;font-weight:600;color:#10b981;
+                      padding:10px 14px;background:#1a1d27;border:1px solid #10b98144;
+                      border-radius:8px;list-style:none;user-select:none">
+        &#128674; Gemini Route Analysis — Click to expand
+      </summary>
+      <div style="margin-top:12px;padding:16px 18px;background:#1a1d2790;border:1px solid #2e3352;
+                  border-radius:8px;font-size:.82rem;line-height:1.65;color:#c4cad6">
+        {paragraphs}
+        <div style="margin-top:12px;font-size:.72rem;color:#8892a4">
+          &#x1F916; Generated by Gemini 2.5 Flash · {gen_at[:16].replace("T"," ")} UTC
+        </div>
+      </div>
+    </details>"""
+
+    return f"""
+  <!-- Fleet Watch -->
+  <section class="section" style="border-color:#10b98144;margin-bottom:28px">
+    <div class="section-header" style="margin-bottom:16px">
+      <h2 class="section-title" style="color:#10b981">
+        &#128674; Fleet Watch
+        <span class="section-sub">Crude · LNG · CNG vessels en-route &amp; at Indian ports{stale_badge}{fresh_badge}</span>
+      </h2>
+    </div>
+    {cards_html}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      {zone_table}
+    </div>
+    {analysis_html}
+  </section>"""
+
+
 def build_html(records: list[dict], stats: dict, generated_at: str, history: list,
                live: dict | None = None, expected: list | None = None,
-               crude_data: dict | None = None, crude_analysis: str = "") -> str:
+               crude_data: dict | None = None, crude_analysis: str = "",
+               watch_data: dict | None = None, watch_analysis: str = "") -> str:
     total      = stats["total_in_port"]
     cargo      = stats["cargo_counts"]
     busiest    = stats["busiest_port"]
@@ -685,6 +867,7 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
                   if ais_fetched_at else 'AIS offline — vessel movements from port schedule scrapers')
 
     crude_section = _crude_insight_section(crude_data or {}, crude_analysis)
+    watch_section = _vessel_watch_section(watch_data or {}, watch_analysis)
 
     _dot = '<span class="ais-dot"></span>'
     _off = '<span class="ais-offline">AIS offline</span> '
@@ -884,6 +1067,8 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     </div>
   </div>
 
+  {watch_section}
+
   {crude_section}
 
   <!-- Expected vessel arrivals (port-scheduled) -->
@@ -1077,6 +1262,8 @@ async def _main():
     live           = load_ais_snapshot()
     crude_data     = load_crude_weekly()
     crude_analysis = load_crude_analysis()
+    watch_data     = load_vessel_watch()
+    watch_analysis = load_vessel_watch_analysis()
 
     stats = compute_stats(records)
     print(f"Stats: {stats['total_in_port']} in port, busiest={stats['busiest_port']}")
@@ -1108,7 +1295,7 @@ async def _main():
 
     os.makedirs("docs", exist_ok=True)
     html = build_html(records, stats, generated_at, history, live, expected,
-                      crude_data, crude_analysis)
+                      crude_data, crude_analysis, watch_data, watch_analysis)
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated docs/index.html at {generated_at} IST")
