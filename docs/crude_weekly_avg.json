@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-06-07T12:13:34Z",
+  "recommended_weekly_avg_mt": 525000,
+  "recommendation_note": "Using live scraper data (7-day vessel-level tonnage).",
+  "official": {
+    "source": "official",
+    "report_month": "April 2026",
+    "pol_crude_tonnes_monthly": 19953876,
+    "weekly_avg_mt": 4640436,
+    "pol_crude_share_pct": 27.05,
+    "total_cargo_tonnes": 73760114,
+    "date_range": "April 2026 \u00f7 4.3 weeks",
+    "per_port": {},
+    "notes": "POL & Crude Products aggregate across all 12 major Indian ports. Per-port crude breakdown is not available in this PDF. Weekly average = 19,953,876 MT \u00f7 4.3 weeks."
+  },
+  "live": {
+    "source": "live",
+    "date_range": "2026-05-31 to 2026-06-07",
+    "weekly_avg_mt": 525000,
+    "vessel_count": 3,
+    "per_port": {
+      "Paradip": 425324,
+      "Deendayal": 99676
+    },
+    "data_sparse": false
+  }
+}

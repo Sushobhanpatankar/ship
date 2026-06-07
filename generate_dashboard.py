@@ -32,8 +32,11 @@ from scrapers.vizag_scraper import VizagScraper                         # noqa: 
 
 HISTORY_FILE    = "docs/ships_data.json"
 AIS_SNAPSHOT    = "docs/ais_snapshot.json"
+CRUDE_WEEKLY    = "docs/crude_weekly_avg.json"
+CRUDE_ANALYSIS  = "docs/crude_analysis.txt"
 MAX_HISTORY     = 336   # 7 days × 48 half-hours
 SNAPSHOT_MAX_AGE_HOURS = 3   # treat snapshot as stale if older than this (snapshots run every 2h)
+CRUDE_MAX_AGE_HOURS    = 48  # show crude data up to 48h old, then flag as stale
 
 
 # ─────────────────────────────────────────────────────────────
@@ -111,6 +114,49 @@ def load_ais_snapshot() -> dict:
     except Exception as e:
         print(f"  [AIS snapshot] read error: {e}")
         return {}
+
+
+# ─────────────────────────────────────────────────────────────
+# Crude weekly data loader
+# ─────────────────────────────────────────────────────────────
+
+def load_crude_weekly() -> dict:
+    """Load docs/crude_weekly_avg.json if present and not too old."""
+    if not os.path.exists(CRUDE_WEEKLY):
+        return {}
+    try:
+        with open(CRUDE_WEEKLY, encoding="utf-8") as f:
+            data = json.load(f)
+        generated_at = data.get("generated_at", "")
+        stale = False
+        age_str = ""
+        if generated_at:
+            ts = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            age = datetime.now(timezone.utc) - ts
+            stale = age > timedelta(hours=CRUDE_MAX_AGE_HOURS)
+            hours = int(age.total_seconds() // 3600)
+            age_str = f"{hours}h ago" if hours < 48 else f"{age.days}d ago"
+        data["_stale"] = stale
+        data["_age_str"] = age_str
+        print(f"  [Crude weekly] loaded (generated {age_str}{'  — stale' if stale else ''})")
+        return data
+    except Exception as e:
+        print(f"  [Crude weekly] read error: {e}")
+        return {}
+
+
+def load_crude_analysis() -> str:
+    """Load the Gemini analysis text from docs/crude_analysis.txt if present."""
+    if not os.path.exists(CRUDE_ANALYSIS):
+        return ""
+    try:
+        with open(CRUDE_ANALYSIS, encoding="utf-8") as f:
+            text = f.read().strip()
+        print(f"  [Crude analysis] loaded ({len(text)} chars)")
+        return text
+    except Exception as e:
+        print(f"  [Crude analysis] read error: {e}")
+        return ""
 
 
 # ─────────────────────────────────────────────────────────────
@@ -321,6 +367,59 @@ def _expected_outbound_rows(records: list[dict]) -> str:
     return rows
 
 
+def _inbound_rows_from_expected(expected: list[dict]) -> str:
+    """Render expected-arrival records in the AIS inbound table format (fallback)."""
+    inbound = [r for r in expected if r.get("direction", "INBOUND") == "INBOUND"]
+    if not inbound:
+        return ('<tr><td colspan="7" style="text-align:center;color:#8892a4;padding:24px">'
+                'No inbound vessel data available — AIS offline, port schedules also empty.</td></tr>')
+    rows = ""
+    for r in inbound:
+        name  = (r.get("ship_name") or "Unknown")[:28]
+        cargo = r.get("cargo_category", "OTHER")
+        port  = r.get("port_name", "—")
+        eta   = r.get("eta", "—")
+        qty   = r.get("quantity_mt", 0)
+        qty_str = f"{qty:,}&nbsp;MT" if qty else "—"
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='text-align:right;color:#8892a4'>—</td>"
+            f"<td style='text-align:right;color:#8892a4'>—</td>"
+            f"<td style='font-size:.78rem;color:#8892a4'>{port}</td>"
+            f"<td style='text-align:center;color:#10b981'>{eta}</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
+def _outbound_rows_from_expected(expected: list[dict]) -> str:
+    """Render expected-outbound records in the AIS outbound table format (fallback)."""
+    outbound = [r for r in expected if r.get("direction") == "OUTBOUND"]
+    if not outbound:
+        return ('<tr><td colspan="6" style="text-align:center;color:#8892a4;padding:24px">'
+                'No outbound vessel data available — AIS offline, port schedules also empty.</td></tr>')
+    rows = ""
+    for r in outbound:
+        name  = (r.get("ship_name") or "Unknown")[:28]
+        cargo = r.get("cargo_category", "OTHER")
+        port  = r.get("port_name", "—")
+        eta   = r.get("eta", "—")
+        rows += (
+            f"<tr>"
+            f"<td style='font-weight:500'>{name}</td>"
+            f"<td>{_cargo_badge(cargo)}</td>"
+            f"<td>{port}</td>"
+            f"<td style='text-align:right;color:#8892a4'>—</td>"
+            f"<td style='text-align:right;color:#8892a4'>—</td>"
+            f"<td style='text-align:center;color:#f59e0b'>{eta}</td>"
+            f"</tr>\n"
+        )
+    return rows
+
+
 def _inbound_rows(vessels: list[dict]) -> str:
     if not vessels:
         return ('<tr><td colspan="7" style="text-align:center;color:#8892a4;padding:24px">'
@@ -378,8 +477,162 @@ def _outbound_rows(vessels: list[dict]) -> str:
     return rows
 
 
+_MT_TO_BBL = 7.33  # approximate barrels per metric tonne for crude
+
+
+def _crude_insight_section(crude_data: dict, analysis: str) -> str:
+    """Build the HTML for the Crude Weekly Insight section."""
+    if not crude_data:
+        return ""
+
+    stale        = crude_data.get("_stale", False)
+    age_str      = crude_data.get("_age_str", "")
+    official     = crude_data.get("official", {})
+    live_d       = crude_data.get("live", {})
+    rec          = crude_data.get("recommended_weekly_avg_mt")
+    rec_note     = crude_data.get("recommendation_note", "")
+    gen_at       = crude_data.get("generated_at", "")
+
+    stale_badge  = (f'<span style="font-size:.7rem;color:#ef4444;margin-left:8px">'
+                    f'&#9888; data {age_str} old</span>') if stale else ""
+    fresh_badge  = (f'<span style="font-size:.7rem;color:#10b981;margin-left:8px">'
+                    f'updated {age_str}</span>') if age_str and not stale else ""
+
+    # ── recommended headline ──────────────────────────────────────────────────
+    if rec:
+        rec_bbl = int(rec * _MT_TO_BBL)
+        headline_num  = f"{rec:,}"
+        headline_bbl  = f"{rec_bbl:,}"
+        headline_color = "#ef4444" if stale else "#fbbf24"
+    else:
+        headline_num  = "N/A"
+        headline_bbl  = "—"
+        headline_color = "#8892a4"
+
+    # ── official card ─────────────────────────────────────────────────────────
+    off_html = ""
+    if official and not official.get("error"):
+        off_wk  = official.get("weekly_avg_mt", 0)
+        off_mo  = official.get("pol_crude_tonnes_monthly", 0)
+        off_mon = official.get("report_month", "")
+        off_sh  = official.get("pol_crude_share_pct", 0)
+        off_html = f"""
+      <div class="crude-card">
+        <div class="crude-card-num">{off_wk:,}</div>
+        <div class="crude-card-label">MT/week · Official</div>
+        <div class="crude-card-sub">{off_mon} · {off_mo:,} MT/month · {off_sh}% of total port cargo</div>
+      </div>"""
+
+    # ── live card ─────────────────────────────────────────────────────────────
+    live_html = ""
+    if live_d and live_d.get("weekly_avg_mt") is not None:
+        lv_wk  = live_d.get("weekly_avg_mt", 0)
+        lv_vc  = live_d.get("vessel_count", 0)
+        lv_dr  = live_d.get("date_range", "")
+        sparse = live_d.get("data_sparse", True)
+        sparse_flag = (' <span style="color:#f59e0b;font-size:.68rem">sparse</span>'
+                       if sparse else "")
+        live_html = f"""
+      <div class="crude-card">
+        <div class="crude-card-num">{lv_wk:,}{sparse_flag}</div>
+        <div class="crude-card-label">MT/week · Live scraper</div>
+        <div class="crude-card-sub">{lv_vc} crude vessel(s) · {lv_dr}</div>
+      </div>"""
+
+    # ── per-port breakdown ────────────────────────────────────────────────────
+    per_port = live_d.get("per_port", {}) if live_d else {}
+    port_rows_html = ""
+    total_live = sum(per_port.values()) if per_port else 0
+    if per_port:
+        for port, mt in sorted(per_port.items(), key=lambda x: -x[1]):
+            share = int(mt / total_live * 100) if total_live else 0
+            bar_w = share
+            port_rows_html += f"""
+        <tr>
+          <td style="font-weight:600">{port}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;color:#fbbf24">{mt:,}</td>
+          <td>
+            <div style="background:#2e3352;border-radius:4px;height:8px;width:100%;min-width:60px">
+              <div style="background:#fbbf24;border-radius:4px;height:8px;width:{bar_w}%"></div>
+            </div>
+          </td>
+          <td style="text-align:right;color:#8892a4;font-size:.78rem">{share}%</td>
+        </tr>"""
+
+    port_table_html = ""
+    if port_rows_html:
+        port_table_html = f"""
+    <div style="margin-top:18px">
+      <div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Per-Port Breakdown (Live · 7-day)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Port</th>
+            <th style="text-align:right">Crude (MT)</th>
+            <th style="min-width:120px">Volume</th>
+            <th style="text-align:right">Share</th>
+          </tr>
+        </thead>
+        <tbody>{port_rows_html}
+        </tbody>
+      </table>
+    </div>"""
+
+    # ── Gemini analysis ───────────────────────────────────────────────────────
+    analysis_html = ""
+    if analysis:
+        # Escape HTML chars, convert newlines to paragraphs
+        safe = (analysis.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+        paragraphs = "".join(
+            f"<p style='margin-bottom:.7em'>{p.strip()}</p>"
+            for p in safe.split("\n\n") if p.strip()
+        )
+        analysis_html = f"""
+    <details style="margin-top:20px">
+      <summary style="cursor:pointer;font-size:.85rem;font-weight:600;color:#a78bfa;
+                      padding:10px 14px;background:#1a1d27;border:1px solid #4c1d9544;
+                      border-radius:8px;list-style:none;user-select:none">
+        &#x2728; Gemini Analysis — Click to expand
+      </summary>
+      <div style="margin-top:12px;padding:16px 18px;background:#1a1d2790;border:1px solid #2e3352;
+                  border-radius:8px;font-size:.82rem;line-height:1.65;color:#c4cad6">
+        {paragraphs}
+        <div style="margin-top:12px;font-size:.72rem;color:#8892a4">
+          &#x1F916; Generated by Gemini 2.0 Flash · Pipeline data from {gen_at[:10] if gen_at else 'N/A'}
+        </div>
+      </div>
+    </details>"""
+
+    return f"""
+  <!-- Crude Weekly Insight -->
+  <section class="section" style="border-color:#f59e0b44;margin-bottom:28px">
+    <div class="section-header" style="margin-bottom:20px">
+      <h2 class="section-title" style="color:#fbbf24">
+        &#128202; Crude Weekly Insight
+        <span class="section-sub">India imports · avg MT/week{stale_badge}{fresh_badge}</span>
+      </h2>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px">{rec_note}</div>
+    </div>
+
+    <!-- Headline + cards -->
+    <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:20px;align-items:start;flex-wrap:wrap">
+
+      <div style="text-align:center;padding:16px 24px;background:#f59e0b11;border:1px solid #f59e0b33;border-radius:10px;min-width:160px">
+        <div style="font-size:2rem;font-weight:800;color:{headline_color};letter-spacing:-.5px;line-height:1">{headline_num}</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:5px">MT / week (recommended)</div>
+        <div style="font-size:.72rem;color:#8892a4;margin-top:3px">&#8776; {headline_bbl} barrels</div>
+      </div>
+      {off_html}
+      {live_html}
+    </div>
+    {port_table_html}
+    {analysis_html}
+  </section>"""
+
+
 def build_html(records: list[dict], stats: dict, generated_at: str, history: list,
-               live: dict | None = None, expected: list | None = None) -> str:
+               live: dict | None = None, expected: list | None = None,
+               crude_data: dict | None = None, crude_analysis: str = "") -> str:
     total      = stats["total_in_port"]
     cargo      = stats["cargo_counts"]
     busiest    = stats["busiest_port"]
@@ -396,14 +649,42 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     inbound_vessels  = (live or {}).get("inbound", [])
     outbound_vessels = (live or {}).get("outbound", [])
     ais_fetched_at   = (live or {}).get("fetched_at", "")
-    mov_inbound_rows  = _inbound_rows(inbound_vessels)
-    mov_outbound_rows = _outbound_rows(outbound_vessels)
+
+    # When AIS data is unavailable, fall back to port-scheduled expected movements
+    ais_inbound_source  = "AIS"
+    ais_outbound_source = "AIS"
+    if not inbound_vessels:
+        mov_inbound_rows = _inbound_rows_from_expected(expected)
+        ais_inbound_source = "Port Schedules"
+    else:
+        mov_inbound_rows = _inbound_rows(inbound_vessels)
+    if not outbound_vessels:
+        mov_outbound_rows = _outbound_rows_from_expected(expected)
+        ais_outbound_source = "Port Schedules"
+    else:
+        mov_outbound_rows = _outbound_rows(outbound_vessels)
+
+    # Counts: AIS or fall back to expected counts
+    if inbound_vessels:
+        inbound_count_label = f"{inbound} vessel{'s' if inbound != 1 else ''}"
+    else:
+        fb_in = sum(1 for r in expected if r.get("direction", "INBOUND") == "INBOUND")
+        inbound_count_label = (f"{fb_in} vessel{'s' if fb_in != 1 else ''} · {ais_inbound_source}"
+                               if fb_in else f"0 vessels · {ais_inbound_source}")
+    if outbound_vessels:
+        outbound_count_label = f"{outbound} vessel{'s' if outbound != 1 else ''}"
+    else:
+        fb_out = sum(1 for r in expected if r.get("direction") == "OUTBOUND")
+        outbound_count_label = (f"{fb_out} vessel{'s' if fb_out != 1 else ''} · {ais_outbound_source}"
+                                if fb_out else f"0 vessels · {ais_outbound_source}")
+
     ais_note = (f'<span class="stale-note">AIS: {ais_fetched_at} UTC</span>'
-                if ais_fetched_at else "")
+                if ais_fetched_at else
+                '<span class="stale-note">AIS offline · showing port schedules</span>')
     ais_footer = (f'AIS snapshot: {ais_fetched_at} UTC'
-                  if ais_fetched_at else 'AIS snapshots run every 2 h via GitHub Actions')
-    inbound_count_label  = f"{inbound} vessel{'s' if inbound != 1 else ''}"
-    outbound_count_label = f"{outbound} vessel{'s' if outbound != 1 else ''}"
+                  if ais_fetched_at else 'AIS offline — vessel movements from port schedule scrapers')
+
+    crude_section = _crude_insight_section(crude_data or {}, crude_analysis)
 
     _dot = '<span class="ais-dot"></span>'
     _off = '<span class="ais-offline">AIS offline</span> '
@@ -538,6 +819,10 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     .outbound-section .section-title{{color:#f59e0b}}
     .stale-note{{font-size:.72rem;color:var(--muted);font-style:italic;margin-left:8px}}
     @media(max-width:900px){{.movement-grid{{grid-template-columns:1fr}}}}
+    .crude-card{{padding:14px 18px;background:#f59e0b0d;border:1px solid #f59e0b22;border-radius:10px}}
+    .crude-card-num{{font-size:1.5rem;font-weight:800;color:#fbbf24;line-height:1;letter-spacing:-.5px}}
+    .crude-card-label{{font-size:.72rem;color:var(--muted);margin-top:5px;font-weight:600}}
+    .crude-card-sub{{font-size:.7rem;color:#8892a4;margin-top:3px}}
   </style>
 </head>
 <body>
@@ -599,6 +884,8 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     </div>
   </div>
 
+  {crude_section}
+
   <!-- Expected vessel arrivals (port-scheduled) -->
   <div class="movement-grid">
 
@@ -659,7 +946,7 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     <section class="section inbound-section">
       <div class="section-header">
         <h2 class="section-title">Inbound to India
-          <span class="section-sub">({inbound_count_label}){ais_note}</span>
+          <span class="section-sub">({inbound_count_label}) {ais_note}</span>
         </h2>
       </div>
       <div style="overflow-x:auto">
@@ -685,7 +972,7 @@ def build_html(records: list[dict], stats: dict, generated_at: str, history: lis
     <section class="section outbound-section">
       <div class="section-header">
         <h2 class="section-title">Outbound from India
-          <span class="section-sub">({outbound_count_label}){ais_note}</span>
+          <span class="section-sub">({outbound_count_label}) {ais_note}</span>
         </h2>
       </div>
       <div style="overflow-x:auto">
@@ -787,7 +1074,9 @@ async def _main():
     print(f"Total vessels scraped: {len(records)}")
     print(f"Total expected arrivals: {len(expected)}")
 
-    live = load_ais_snapshot()
+    live           = load_ais_snapshot()
+    crude_data     = load_crude_weekly()
+    crude_analysis = load_crude_analysis()
 
     stats = compute_stats(records)
     print(f"Stats: {stats['total_in_port']} in port, busiest={stats['busiest_port']}")
@@ -818,7 +1107,8 @@ async def _main():
     print(f"History: {len(history)} point(s) saved to {HISTORY_FILE}")
 
     os.makedirs("docs", exist_ok=True)
-    html = build_html(records, stats, generated_at, history, live, expected)
+    html = build_html(records, stats, generated_at, history, live, expected,
+                      crude_data, crude_analysis)
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated docs/index.html at {generated_at} IST")
