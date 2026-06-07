@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-06-07T13:31:00Z",
+  "stream_seconds": 90,
+  "totals": {
+    "india_bound": 0,
+    "transiting": 0,
+    "in_gulf": 0,
+    "india_bound_counts": {
+      "CRUDE": 0,
+      "LNG": 0,
+      "CNG": 0,
+      "PETROLEUM": 0
+    },
+    "transiting_counts": {
+      "CRUDE": 0,
+      "LNG": 0,
+      "CNG": 0,
+      "PETROLEUM": 0
+    }
+  },
+  "destination_ports": {},
+  "flag_origins": {},
+  "india_bound": [],
+  "transiting": [],
+  "in_gulf": []
+}

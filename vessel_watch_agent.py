@@ -1,9 +1,13 @@
 """
 Vessel Watch Agent — Gemini-powered monitoring of crude/LNG/CNG vessels
 =======================================================================
-Loads docs/ais_snapshot.json (inbound/outbound AIS data) and the latest
-port scraper results, then asks Gemini to analyse origin routes, sea zones,
-and notable patterns for energy tankers heading to India.
+Loads:
+  - docs/ais_snapshot.json     (inbound/outbound AIS from Indian waters)
+  - docs/hormuz_snapshot.json  (Persian Gulf / Hormuz region, from hormuz_tracker.py)
+  - live port scraper results
+
+Then asks Gemini to analyse origin routes, sea zones, Hormuz pipeline, and
+notable patterns for energy tankers heading to India.
 
 Run twice daily by GitHub Actions (06:00 and 18:00 UTC).
 
@@ -49,9 +53,11 @@ from scrapers.paradip_scraper import ParadipScraper                    # noqa: E
 from scrapers.vizag_scraper import VizagScraper                        # noqa: E402
 
 AIS_SNAPSHOT      = Path("docs/ais_snapshot.json")
+HORMUZ_SNAPSHOT   = Path("docs/hormuz_snapshot.json")
 WATCH_JSON        = Path("docs/vessel_watch.json")
 WATCH_ANALYSIS    = Path("docs/vessel_watch_analysis.txt")
-AIS_MAX_AGE_HOURS = 6   # still useful for watch even if slightly stale
+AIS_MAX_AGE_HOURS     = 6    # still useful for watch even if slightly stale
+HORMUZ_MAX_AGE_HOURS  = 14   # hormuz runs twice daily
 
 ENERGY_CARGO      = {"CRUDE", "LNG", "CNG"}
 
@@ -117,6 +123,24 @@ def load_ais_snapshot() -> tuple[list[dict], list[dict], str, bool]:
     return inbound, outbound, fetched_at, stale
 
 
+# ── Hormuz snapshot loader ───────────────────────────────────────────────────
+
+def load_hormuz_snapshot() -> tuple[dict, bool]:
+    """
+    Load docs/hormuz_snapshot.json (written by hormuz_tracker.py).
+    Returns (data, is_stale). Empty dict if file missing or too old.
+    """
+    if not HORMUZ_SNAPSHOT.exists():
+        return {}, True
+    data = json.loads(HORMUZ_SNAPSHOT.read_text(encoding="utf-8"))
+    gen_at = data.get("generated_at", "")
+    stale = True
+    if gen_at:
+        ts = datetime.fromisoformat(gen_at.replace("Z", "+00:00"))
+        stale = datetime.now(timezone.utc) - ts > timedelta(hours=HORMUZ_MAX_AGE_HOURS)
+    return data, stale
+
+
 # ── Port scraper runner ───────────────────────────────────────────────────────
 
 async def _run_port_scrapers() -> list[dict]:
@@ -148,6 +172,8 @@ def _build_snapshot(
     at_port: list[dict],
     ais_fetched_at: str,
     ais_stale: bool,
+    hormuz: dict | None = None,
+    hormuz_stale: bool = True,
 ) -> dict:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -166,6 +192,22 @@ def _build_snapshot(
         z = v.get("sea_zone", "Unknown")
         zone_counts[z] = zone_counts.get(z, 0) + 1
 
+    hormuz_summary = {}
+    if hormuz and not hormuz_stale:
+        t = hormuz.get("totals", {})
+        hormuz_summary = {
+            "india_bound":   t.get("india_bound", 0),
+            "transiting":    t.get("transiting", 0),
+            "in_gulf":       t.get("in_gulf", 0),
+            "india_bound_counts": t.get("india_bound_counts", {}),
+            "destination_ports": hormuz.get("destination_ports", {}),
+            "flag_origins":  hormuz.get("flag_origins", {}),
+            "generated_at":  hormuz.get("generated_at", ""),
+            "stale":         False,
+        }
+    elif hormuz_stale:
+        hormuz_summary = {"stale": True}
+
     return {
         "generated_at":     now,
         "ais_snapshot_at":  ais_fetched_at,
@@ -178,10 +220,11 @@ def _build_snapshot(
             "inbound_counts":  _counts(inbound),
             "outbound_counts": _counts(outbound),
         },
-        "sea_zones": zone_counts,
-        "inbound":  inbound,
-        "outbound": outbound,
-        "at_port":  at_port,
+        "sea_zones":    zone_counts,
+        "hormuz":       hormuz_summary,
+        "inbound":      inbound,
+        "outbound":     outbound,
+        "at_port":      at_port,
     }
 
 
@@ -260,14 +303,47 @@ def _build_prompt(snap: dict) -> str:
             lines.append(f"  {name} | {cargo} | from {port} | dest: {dest} | {spd:.1f} kn")
         lines.append("")
 
+    # Hormuz pipeline section
+    hormuz = snap.get("hormuz", {})
+    if hormuz and not hormuz.get("stale"):
+        lines += [
+            f"HORMUZ PIPELINE (as of {hormuz.get('generated_at','')[:16].replace('T',' ')} UTC):",
+            f"  Vessels with confirmed India destination in/near Gulf: {hormuz.get('india_bound', 0)}",
+            f"  Transiting Hormuz/Gulf of Oman (no India dest yet):    {hormuz.get('transiting', 0)}",
+            f"  Remaining in Persian Gulf:                              {hormuz.get('in_gulf', 0)}",
+        ]
+        ibc = hormuz.get("india_bound_counts", {})
+        if ibc:
+            lines.append(
+                f"  India-bound cargo mix: Crude {ibc.get('CRUDE',0)}  "
+                f"LNG {ibc.get('LNG',0)}  CNG {ibc.get('CNG',0)}  "
+                f"Petroleum {ibc.get('PETROLEUM',0)}"
+            )
+        dest_ports = hormuz.get("destination_ports", {})
+        if dest_ports:
+            lines.append("  India port destinations (from AIS dest field):")
+            for port, cnt in sorted(dest_ports.items(), key=lambda x: -x[1]):
+                lines.append(f"    {port}: {cnt} vessel(s)")
+        flag_origins = hormuz.get("flag_origins", {})
+        if flag_origins:
+            top5 = sorted(flag_origins.items(), key=lambda x: -x[1])[:6]
+            lines.append("  Vessel flags (top origins): "
+                         + ", ".join(f"{c}×{f}" for f, c in top5))
+        lines.append("")
+    elif hormuz.get("stale"):
+        lines += ["HORMUZ PIPELINE: Data stale — run hormuz_tracker.py to refresh.", ""]
+
     lines += [
         "Please analyse:",
-        "1. Which sea lanes dominate inbound crude/LNG traffic today and what this implies",
-        "   about supply origins (Middle East, Africa, Russia, Americas)",
-        "2. LNG vs crude vs CNG balance — any shift from typical patterns?",
-        "3. Notable vessels by route, destination, or behaviour",
-        "4. Any operational caveats (stale AIS, sparse data, coverage gaps)",
-        "5. Short outlook for the next 12-24 hours based on inbound vessels' ETA",
+        "1. Hormuz pipeline: how many vessels are in the gulf pipeline heading to India,",
+        "   what cargo types dominate, and what their flag states suggest about supply origins",
+        "   (Middle East crude, Qatar LNG, Russian crude via Gulf, etc.)",
+        "2. Which Indian ports are the primary destinations and what this implies",
+        "   (Paradip/Mundra → crude; Kochi/Hazira/Dahej → LNG; Hazira → CNG)",
+        "3. Sea-lane distribution for currently inbound vessels (Arabian Sea vs Bay of Bengal)",
+        "4. LNG vs crude vs CNG balance — any shift from typical Indian import patterns?",
+        "5. Any operational caveats (stale AIS, sparse data, coverage gaps)",
+        "6. Short outlook: estimated arrivals in next 24-48h based on distances and speeds",
     ]
     return "\n".join(lines)
 
@@ -319,17 +395,28 @@ def main() -> None:
         print("Error: GEMINI_API_KEY not set.", file=sys.stderr)
         sys.exit(1)
 
-    # 1. Load AIS snapshot
+    # 1. Load AIS snapshot (Indian waters)
     inbound, outbound, ais_at, ais_stale = load_ais_snapshot()
-    print(f"AIS: {len(inbound)} inbound, {len(outbound)} outbound"
+    print(f"AIS (India): {len(inbound)} inbound, {len(outbound)} outbound"
           f"{' (STALE)' if ais_stale else ''}", file=sys.stderr)
 
-    # 2. Run port scrapers
+    # 2. Load Hormuz snapshot
+    hormuz, hormuz_stale = load_hormuz_snapshot()
+    if hormuz:
+        t = hormuz.get("totals", {})
+        print(f"Hormuz: {t.get('india_bound',0)} India-bound, "
+              f"{t.get('transiting',0)} transiting"
+              f"{' (STALE)' if hormuz_stale else ''}", file=sys.stderr)
+    else:
+        print("Hormuz: no snapshot found (run hormuz_tracker.py)", file=sys.stderr)
+
+    # 3. Run port scrapers
     at_port = asyncio.run(_run_port_scrapers())
     print(f"At-port: {len(at_port)} energy vessels", file=sys.stderr)
 
-    # 3. Build snapshot JSON
-    snap = _build_snapshot(inbound, outbound, at_port, ais_at, ais_stale)
+    # 4. Build snapshot JSON
+    snap = _build_snapshot(inbound, outbound, at_port, ais_at, ais_stale,
+                           hormuz, hormuz_stale)
     WATCH_JSON.parent.mkdir(parents=True, exist_ok=True)
     WATCH_JSON.write_text(json.dumps(snap, indent=2), encoding="utf-8")
     print(f"Written {WATCH_JSON}", file=sys.stderr)

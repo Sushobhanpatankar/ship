@@ -34,8 +34,9 @@ HISTORY_FILE    = "docs/ships_data.json"
 AIS_SNAPSHOT    = "docs/ais_snapshot.json"
 CRUDE_WEEKLY    = "docs/crude_weekly_avg.json"
 CRUDE_ANALYSIS  = "docs/crude_analysis.txt"
-VESSEL_WATCH    = "docs/vessel_watch.json"
+VESSEL_WATCH          = "docs/vessel_watch.json"
 VESSEL_WATCH_ANALYSIS = "docs/vessel_watch_analysis.txt"
+HORMUZ_SNAPSHOT       = "docs/hormuz_snapshot.json"
 MAX_HISTORY     = 336   # 7 days × 48 half-hours
 SNAPSHOT_MAX_AGE_HOURS = 3   # treat snapshot as stale if older than this (snapshots run every 2h)
 CRUDE_MAX_AGE_HOURS    = 48  # show crude data up to 48h old, then flag as stale
@@ -770,6 +771,66 @@ def _vessel_watch_section(watch: dict, analysis: str) -> str:
       </table>
     </div>"""
 
+    # Hormuz pipeline panel
+    hormuz_html = ""
+    hormuz = watch.get("hormuz", {})
+    if hormuz and not hormuz.get("stale"):
+        hib   = hormuz.get("india_bound", 0)
+        htrans = hormuz.get("transiting", 0)
+        hgulf  = hormuz.get("in_gulf", 0)
+        hibc   = hormuz.get("india_bound_counts", {})
+        hdest  = hormuz.get("destination_ports", {})
+        hflags = hormuz.get("flag_origins", {})
+        hgen   = hormuz.get("generated_at", "")[:16].replace("T", " ")
+
+        dest_rows = ""
+        for port, cnt in sorted(hdest.items(), key=lambda x: -x[1])[:8]:
+            dest_rows += (f"<tr><td>{port}</td>"
+                          f"<td style='text-align:right;color:#10b981'>{cnt}</td></tr>\n")
+
+        flag_rows = ""
+        for flag, cnt in sorted(hflags.items(), key=lambda x: -x[1])[:6]:
+            flag_rows += (f"<tr><td>{flag}</td>"
+                          f"<td style='text-align:right;color:#60a5fa'>{cnt}</td></tr>\n")
+
+        hormuz_html = f"""
+    <div style="margin-top:20px;padding:16px 18px;background:#0f111780;
+                border:1px solid #10b98133;border-radius:10px">
+      <div style="font-size:.8rem;font-weight:700;color:#10b981;margin-bottom:12px;
+                  text-transform:uppercase;letter-spacing:.06em">
+        &#9875; Hormuz Pipeline · {hgen} UTC
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
+        <div style="text-align:center">
+          <div style="font-size:1.6rem;font-weight:800;color:#10b981">{hib}</div>
+          <div style="font-size:.7rem;color:var(--muted)">India-bound</div>
+          <div style="font-size:.68rem;color:#8892a4">
+            Crude {hibc.get('CRUDE',0)} · LNG {hibc.get('LNG',0)} · CNG {hibc.get('CNG',0)}
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:1.6rem;font-weight:800;color:#60a5fa">{htrans}</div>
+          <div style="font-size:.7rem;color:var(--muted)">Transiting Hormuz</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:1.6rem;font-weight:800;color:#f59e0b">{hgulf}</div>
+          <div style="font-size:.7rem;color:var(--muted)">In Persian Gulf</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div style="font-size:.72rem;font-weight:600;color:var(--muted);margin-bottom:6px">
+            INDIA DESTINATION PORTS</div>
+          <table style="font-size:.78rem">{dest_rows or '<tr><td colspan=2 style="color:#8892a4">—</td></tr>'}</table>
+        </div>
+        <div>
+          <div style="font-size:.72rem;font-weight:600;color:var(--muted);margin-bottom:6px">
+            VESSEL FLAGS</div>
+          <table style="font-size:.78rem">{flag_rows or '<tr><td colspan=2 style="color:#8892a4">—</td></tr>'}</table>
+        </div>
+      </div>
+    </div>"""
+
     # Gemini analysis
     analysis_html = ""
     if analysis:
@@ -807,6 +868,7 @@ def _vessel_watch_section(watch: dict, analysis: str) -> str:
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
       {zone_table}
     </div>
+    {hormuz_html}
     {analysis_html}
   </section>"""
 
