@@ -67,5 +67,28 @@
         "activity": "BERTHED"
       }
     ]
+  },
+  {
+    "ts_utc": "2026-06-07T12:30:09Z",
+    "vessels": [
+      {
+        "ship_name": "MT BARQ",
+        "port": "Paradip",
+        "quantity_mt": 140074,
+        "activity": "EXPECTED"
+      },
+      {
+        "ship_name": "MT TORKEL",
+        "port": "Paradip",
+        "quantity_mt": 285250,
+        "activity": "EXPECTED"
+      },
+      {
+        "ship_name": "MT OASIS",
+        "port": "Deendayal",
+        "quantity_mt": 99676,
+        "activity": "BERTHED"
+      }
+    ]
   }
 ]

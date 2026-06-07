@@ -151,22 +151,24 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types as genai_types
     except ImportError:
         print(
-            "Error: google-generativeai package not installed.\n"
-            "Run: pip install google-generativeai>=0.8.0",
+            "Error: google-genai package not installed.\n"
+            "Run: pip install google-genai>=1.0.0",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-
+    client = genai.Client(api_key=api_key)
     prompt = _build_prompt(data)
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
         analysis = response.text
     except Exception as exc:
         print(f"Error: Gemini API call failed: {exc}", file=sys.stderr)
