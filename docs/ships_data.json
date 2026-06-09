@@ -1581,6 +1581,25 @@
         "Paradip": 4,
         "Mundra": 5
       }
+    },
+    {
+      "ts_utc": "2026-06-09T06:47:19Z",
+      "ts_ist": "09 Jun, 12:17 PM",
+      "total_in_port": 10,
+      "crude": 5,
+      "lng": 1,
+      "cng": 0,
+      "petroleum": 4,
+      "busiest_port": "Mundra",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 7,
+      "anchored": 3,
+      "ports": {
+        "JNPT": 1,
+        "Paradip": 4,
+        "Mundra": 5
+      }
     }
   ]
 }
