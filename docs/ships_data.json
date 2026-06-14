@@ -2415,6 +2415,21 @@
       "berthed": 0,
       "anchored": 0,
       "ports": {}
+    },
+    {
+      "ts_utc": "2026-06-14T17:57:07Z",
+      "ts_ist": "14 Jun, 11:27 PM",
+      "total_in_port": 0,
+      "crude": 0,
+      "lng": 0,
+      "cng": 0,
+      "petroleum": 0,
+      "busiest_port": "\u2014",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 0,
+      "anchored": 0,
+      "ports": {}
     }
   ]
 }
