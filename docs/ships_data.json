@@ -4338,6 +4338,24 @@
         "JNPT": 2,
         "Mundra": 8
       }
+    },
+    {
+      "ts_utc": "2026-06-27T15:00:56Z",
+      "ts_ist": "27 Jun, 08:30 PM",
+      "total_in_port": 10,
+      "crude": 4,
+      "lng": 1,
+      "cng": 0,
+      "petroleum": 5,
+      "busiest_port": "Mundra",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 5,
+      "anchored": 5,
+      "ports": {
+        "JNPT": 2,
+        "Mundra": 8
+      }
     }
   ]
 }
