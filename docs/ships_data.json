@@ -4804,6 +4804,23 @@
       "ports": {
         "Mundra": 7
       }
+    },
+    {
+      "ts_utc": "2026-06-30T04:43:06Z",
+      "ts_ist": "30 Jun, 10:13 AM",
+      "total_in_port": 6,
+      "crude": 3,
+      "lng": 0,
+      "cng": 0,
+      "petroleum": 3,
+      "busiest_port": "Mundra",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 3,
+      "anchored": 3,
+      "ports": {
+        "Mundra": 6
+      }
     }
   ]
 }
