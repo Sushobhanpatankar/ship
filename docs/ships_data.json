@@ -1,24 +1,6 @@
 {
   "history": [
     {
-      "ts_utc": "2026-08-19T23:19:09Z",
-      "ts_ist": "20 Aug, 04:49 AM",
-      "total_in_port": 5,
-      "crude": 0,
-      "lng": 0,
-      "cng": 0,
-      "petroleum": 5,
-      "busiest_port": "Mundra",
-      "inbound": 0,
-      "outbound": 0,
-      "berthed": 3,
-      "anchored": 2,
-      "ports": {
-        "JNPT": 1,
-        "Mundra": 4
-      }
-    },
-    {
       "ts_utc": "2026-08-19T23:46:25Z",
       "ts_ist": "20 Aug, 05:16 AM",
       "total_in_port": 5,
@@ -5890,6 +5872,25 @@
     {
       "ts_utc": "2026-09-13T22:32:12Z",
       "ts_ist": "14 Sep, 04:02 AM",
+      "total_in_port": 9,
+      "crude": 3,
+      "lng": 0,
+      "cng": 0,
+      "petroleum": 6,
+      "busiest_port": "JNPT",
+      "inbound": 0,
+      "outbound": 0,
+      "berthed": 7,
+      "anchored": 2,
+      "ports": {
+        "JNPT": 3,
+        "Kochi": 3,
+        "Mundra": 3
+      }
+    },
+    {
+      "ts_utc": "2026-09-14T00:40:14Z",
+      "ts_ist": "14 Sep, 06:10 AM",
       "total_in_port": 9,
       "crude": 3,
       "lng": 0,
